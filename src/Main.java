@@ -55,7 +55,9 @@ public class Main {
 		int aByte = -1;
 		long count = 0;
 		do {
-			try {
+			if(readLine(ins, 16))aByte=1;
+			else aByte=-1;
+			/*try {
 				aByte = ins.read();
 			} catch (IOException e) {
 				System.err.println("IO exception while reading: "+fname);
@@ -68,20 +70,29 @@ public class Main {
 				}
 				return false;
 			}
+			System.out.println(aByte+"  "+((char)aByte)); System.out.flush();
 			switch(aByte) {
 			case 'S': if(!readAdministrativeMessage(ins))fail();
+			break;
 			case 'D': if(!readSecurityDirectoryMessage(ins))fail();
+			break;
 			case 'H': if(!readTradingStatusMessage(ins))fail();
+			break;
 			case 'O': if(!readOperationalHaltStatusMessage(ins))fail();
+			break;
 			case 'P': if(!readShortSalePriceTestStatusMessage(ins))fail();
+			break;
 			case 'E': if(!readSecurityEventMessage(ins))fail();
+			break;
 			case '8': if(!readBuyPriceLevelUpdateMessage(ins))fail();
+			break;
 			case '5': if(!readSellPriceLevelUpdateMessage(ins))fail();
-
-			}
+			break;
+            //default: fail();
+			}*/
 			++count;
 		}while (aByte != -1);
-		System.out.println("bytes read: "+count);
+		System.out.println("messages read: "+count);
 		try {
 			ins.close();
 		} catch (IOException e) {
@@ -95,6 +106,25 @@ public class Main {
 		NullPointerException e = new NullPointerException();
 		e.printStackTrace();
 		throw(e);
+	}
+	
+	public static boolean readLine(InputStream s, int length) {
+		String codes = "";
+		String vis = "";
+		for(int i=0;i<length;++i){
+			int x = readByte(s);
+			if(x<0)return false;
+			if(x<16)codes+="0";
+			codes+= Integer.toHexString(x);
+			codes+=" ";
+			if(' ' <= (char)x && (char)x <= '}'){
+				vis+=(char)x;
+			}else{
+				vis+=".";
+			}
+		}
+		System.out.println(codes +"| " + vis);
+		return true;
 	}
 	
 	public static String readString(InputStream s, int length) {
@@ -114,12 +144,13 @@ public class Main {
 	}
 	
 	public static long readLong(InputStream s) {
-		long v = -1;
+		long v = 0;
 		long modifier = 1;
 		for(int i=0;i<8;++i) {
 			try {
 				int x = s.read();
 				if(x==-1) {
+					fail();
 					return -1;
 				}
 				v+=x*modifier;
@@ -262,15 +293,18 @@ public class Main {
 	
 	public static boolean readBuyPriceLevelUpdateMessage(InputStream s) {
 		int eventFlags = readByte(s);
-		if(eventFlags<0)return false;
+		if(eventFlags<0)fail();
 		long t = readTimeStamp(s);
-		if(t<0)return false;
+		if(t<0){
+			System.out.println(t);
+			fail();
+		}
 		String symbol = readString(s,8);
-		if(null==symbol)return false;
+		if(null==symbol)fail();
 		int size = readInt(s);
-		if(size<0)return false;
+		if(size<0)fail();
 		int price = readPrice(s);
-		if(price<0)return false;
+		if(price<0)fail();
 		return true;
 	}
 	
