@@ -178,7 +178,7 @@ public class Main {
 		return new Date(t/1000000);
 	}
 	
-	public static int readEventTime(BufferedInputStream s) {
+	public static int readEventTime(InputStream s) {
 		return 0;
 	}
 	
