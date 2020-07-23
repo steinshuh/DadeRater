@@ -68,6 +68,17 @@ public class Main {
 				}
 				return false;
 			}
+			switch(aByte) {
+			case 'S': if(!readAdministrativeMessage(ins))fail();
+			case 'D': if(!readSecurityDirectoryMessage(ins))fail();
+			case 'H': if(!readTradingStatusMessage(ins))fail();
+			case 'O': if(!readOperationalHaltStatusMessage(ins))fail();
+			case 'P': if(!readShortSalePriceTestStatusMessage(ins))fail();
+			case 'E': if(!readSecurityEventMessage(ins))fail();
+			case '8': if(!readBuyPriceLevelUpdateMessage(ins))fail();
+			case '5': if(!readSellPriceLevelUpdateMessage(ins))fail();
+
+			}
 			++count;
 		}while (aByte != -1);
 		System.out.println("bytes read: "+count);
@@ -80,7 +91,13 @@ public class Main {
 		return true;
 	}
 	
-	public static String readString(BufferedInputStream s, int length) {
+	public static void fail() {
+		NullPointerException e = new NullPointerException();
+		e.printStackTrace();
+		throw(e);
+	}
+	
+	public static String readString(InputStream s, int length) {
 		String v = "";
 		for(int i=0;i<length;++i) {
 			try {
@@ -96,7 +113,7 @@ public class Main {
 		return v.trim();
 	}
 	
-	public static long readLong(BufferedInputStream s) {
+	public static long readLong(InputStream s) {
 		long v = -1;
 		long modifier = 1;
 		for(int i=0;i<8;++i) {
@@ -116,7 +133,7 @@ public class Main {
 		return v;
 	}
 	
-	public static int readInt(BufferedInputStream s) {
+	public static int readInt(InputStream s) {
 		int v = -1;
 		int modifier = 1;
 		for(int i=0;i<4;++i) {
@@ -136,11 +153,11 @@ public class Main {
 		return v;
 	}
 	
-	public static int readPrice(BufferedInputStream s) {
+	public static int readPrice(InputStream s) {
 		return readInt(s);
 	}
 	
-	public static int readByte(BufferedInputStream s) {
+	public static int readByte(InputStream s) {
 		int v = -1;
 		try {
 			v = s.read();
@@ -152,7 +169,7 @@ public class Main {
 		return v;
 	}
 	
-	public static long readTimeStamp(BufferedInputStream s) {
+	public static long readTimeStamp(InputStream s) {
 		return readLong(s);
 		
 	}
@@ -165,7 +182,7 @@ public class Main {
 		return 0;
 	}
 	
-	public static boolean readAdministrativeMessage(BufferedInputStream s) {
+	public static boolean readAdministrativeMessage(InputStream s) {
 		int systemEvent = readByte(s);
 		if(systemEvent<0) return false;
 		long t = readTimeStamp(s);
@@ -182,7 +199,7 @@ public class Main {
 		return false;
 	}
 	
-	public static boolean readSecurityDirectoryMessage(BufferedInputStream s) {
+	public static boolean readSecurityDirectoryMessage(InputStream s) {
 		int flags=readByte(s);
 		if(flags < 0)return false;
 		long t=readTimeStamp(s);
@@ -199,7 +216,7 @@ public class Main {
 		return true;
 	}
 	
-	public static boolean readTradingStatusMessage(BufferedInputStream s) {
+	public static boolean readTradingStatusMessage(InputStream s) {
 		int tradingStatus = readByte(s);
 		if(tradingStatus < 0)return false;
 		long t = readTimeStamp(s);
@@ -208,6 +225,142 @@ public class Main {
 		if(null==symbol)return false;
 		String reason = readString(s,4);
 		if(null==reason)return false;
+		return true;
+	}
+	
+	public static boolean readOperationalHaltStatusMessage(InputStream s) {
+		int operationalHaltStatus = readByte(s);
+		if(operationalHaltStatus<0)return false;
+		long t = readTimeStamp(s);
+		if(t<0)return false;
+		String symbol = readString(s,8);
+		if(null==symbol)return false;
+		return true;
+	}
+	
+	public static boolean readShortSalePriceTestStatusMessage(InputStream s) {
+		int shortSalePriceTestStatus = readByte(s);
+		if(shortSalePriceTestStatus<0)return false;
+		long t = readTimeStamp(s);
+		if(t<0)return false;
+		String symbol = readString(s,8);
+		if(null==symbol)return false;
+		int detail = readByte(s);
+		if(detail<0)return false;
+		return true;
+	}
+	
+	public static boolean readSecurityEventMessage(InputStream s) {
+		int securityEvent = readByte(s);
+		if(securityEvent<0)return false;
+		long t = readTimeStamp(s);
+		if(t<0)return false;
+		String symbol = readString(s,8);
+		if(null==symbol)return false;
+		return true;
+	}
+	
+	public static boolean readBuyPriceLevelUpdateMessage(InputStream s) {
+		int eventFlags = readByte(s);
+		if(eventFlags<0)return false;
+		long t = readTimeStamp(s);
+		if(t<0)return false;
+		String symbol = readString(s,8);
+		if(null==symbol)return false;
+		int size = readInt(s);
+		if(size<0)return false;
+		int price = readPrice(s);
+		if(price<0)return false;
+		return true;
+	}
+	
+	public static boolean readSellPriceLevelUpdateMessage(InputStream s) {
+		int eventFlags = readByte(s);
+		if(eventFlags<0)return false;
+		long t = readTimeStamp(s);
+		if(t<0)return false;
+		String symbol = readString(s,8);
+		if(null==symbol)return false;
+		int size = readInt(s);
+		if(size<0)return false;
+		int price = readPrice(s);
+		if(price<0)return false;
+		return true;
+	}
+	
+	public static boolean readTradeReportMessage(InputStream s) {
+		int saleConditionFlags = readByte(s);
+		if(saleConditionFlags<0)return false;
+		long t = readTimeStamp(s);
+		if(t<0)return false;
+		String symbol = readString(s,8);
+		if(null==symbol)return false;
+		int size = readInt(s);
+		if(size<0)return false;
+		int price = readPrice(s);
+		if(price<0)return false;
+		long tradeId = readLong(s);
+		if(tradeId<0)return false;
+		return true;
+	}
+	
+	public static boolean readOfficialPriceMessage(InputStream s) {
+		int priceType = readByte(s);
+		if(priceType<0)return false;
+		long t = readTimeStamp(s);
+		if(t<0)return false;
+		String symbol = readString(s,8);
+		if(null==symbol)return false;
+		int officialPrice = readPrice(s);
+		if(officialPrice<0)return false;
+		return true;
+	}
+	
+	public static boolean readTradeBreakMessage(InputStream s) {
+		int saleConditionFlags = readByte(s);
+		if(saleConditionFlags<0)return false;
+		long t = readTimeStamp(s);
+		if(t<0)return false;
+		String symbol = readString(s,8);
+		if(null==symbol)return false;
+		int size = readInt(s);
+		if(size<0)return false;
+		int price = readPrice(s);
+		if(price<0)return false;
+		long tradeId = readLong(s);
+		if(tradeId<0)return false;
+		return true;
+	}
+	
+	public static boolean readAuctionInformationMessage(InputStream s) {
+		int auctionType = readByte(s);
+		if(auctionType<0)return false;
+		long t = readTimeStamp(s);
+		if(t<0)return false;
+		String symbol = readString(s,8);
+		if(null==symbol)return false;
+		int pairedShares = readInt(s);
+		if(pairedShares<0)return false;
+		int referencePrice = readPrice(s);
+		if(referencePrice<0)return false;
+		int indicativeClearingPrice = readPrice(s);
+		if(indicativeClearingPrice<0)return false;
+		int imbalanceShares = readInt(s);
+		if(imbalanceShares<0)return false;
+		int imbalanceSide = readByte(s);
+		if(imbalanceSide<0)return false;
+		int extensionNumber = readByte(s);
+		if(extensionNumber<0)return false;
+		int scheduledAuctionTime = readEventTime(s);
+		if(scheduledAuctionTime<0)return false;
+		int auctionBookClearingPrice = readPrice(s);
+		if(auctionBookClearingPrice<0)return false;
+		int collarReferencePrice = readPrice(s);
+		if(collarReferencePrice<0)return false;
+		int lowerAuctionCollar = readPrice(s);
+		if(lowerAuctionCollar<0)return false;
+		int upperAuctionCollar = readPrice(s);
+		if(upperAuctionCollar<0)return false;
 		return true;
 	}
 }
