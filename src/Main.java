@@ -15,10 +15,8 @@ public class Main {
 	
 	public static Ticker getTicker(String symbol) {
 		if(tickers.containsKey(symbol)) {
-			System.out.println("tickers: "+tickers.size() +", has symbol: "+symbol);
 			return tickers.get(symbol);
 		}
-		System.out.println("tickers: "+tickers.size() +", new symbol: "+symbol);
 		Ticker ticker = new Ticker(symbol);
 		tickers.put(symbol, ticker);
 		return ticker;
@@ -206,7 +204,7 @@ public class Main {
 			try {
 				int x = s.read();
 				if(x==-1)return null;
-				v+=Character.forDigit(x, 10);
+				v+=(char)x;
 			} catch (IOException e) {
 				System.err.println("IO exception");
 				e.printStackTrace();
