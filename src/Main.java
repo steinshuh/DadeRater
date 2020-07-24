@@ -6,8 +6,24 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Date;
+import java.util.Map;
+import java.util.TreeMap;
 
 public class Main {
+	
+	public static Map<String, Ticker> tickers = new TreeMap<String, Ticker>();
+	
+	public static Ticker getTicker(String symbol) {
+		if(tickers.containsKey(symbol)) {
+			System.out.println("tickers: "+tickers.size() +", has symbol: "+symbol);
+			return tickers.get(symbol);
+		}
+		System.out.println("tickers: "+tickers.size() +", new symbol: "+symbol);
+		Ticker ticker = new Ticker(symbol);
+		tickers.put(symbol, ticker);
+		return ticker;
+	}
+	
 
 	public static void printUsage(String[] invocation) {
 		//invocation config: 
@@ -62,7 +78,7 @@ public class Main {
 
 	public static boolean parse(String fname) {
 
-
+		Map<String,Integer> messageCounts = new TreeMap<String, Integer>();
 		InputStream ins = null;
 		try {
 			ins = new BufferedInputStream(new FileInputStream(fname), 200*1024*1024);
@@ -95,6 +111,13 @@ public class Main {
 							ee.printStackTrace();
 						}
 						return false;
+					}
+					String ab = ""+(char)aByte;
+					if(messageCounts.containsKey(ab)) {
+						Integer x = messageCounts.get(ab);
+						messageCounts.put(ab, x.intValue()+1);
+					}else {
+						messageCounts.put(ab,  1);
 					}
 					switch(aByte) {
 					case 'S': if(!readAdministrativeMessage(ins, messageSize))fail();
@@ -135,6 +158,11 @@ public class Main {
 			System.err.println("failed to close: "+fname+", but read it all, so ignoring.");
 			e.printStackTrace();
 		}
+		for(String ab : messageCounts.keySet()) {
+			System.out.println(ab+" "+messageCounts.get(ab));
+		}
+		System.out.println("tickers: "+tickers.size());
+		
 		return true;
 	}
 
@@ -407,6 +435,8 @@ public class Main {
 		computedMessageSize+=8;
 		if(price<0)fail();
 		if(computedMessageSize!=messageSize)fail();
+		Ticker ticker = getTicker(symbol);
+		ticker.addBuy(t, price, size);
 		return true;
 	}
 
@@ -428,6 +458,8 @@ public class Main {
 		computedMessageSize+=8;
 		if(price<0)fail();
 		if(computedMessageSize!=messageSize)fail();
+		Ticker ticker = getTicker(symbol);
+		ticker.addSell(t, price, size);
 		return true;
 	}
 
@@ -470,6 +502,8 @@ public class Main {
 		computedMessageSize+=8;
 		if(officialPrice<0)return false;
 		if(computedMessageSize!=messageSize)fail();
+		Ticker ticker = getTicker(symbol);
+		ticker.setPrice(t, officialPrice);
 		return true;
 	}
 
@@ -549,9 +583,7 @@ public class Main {
 		int matchIndex=0;
 		int[] header = {1,0,4,0x80};
 		int rb=0;
-		int rawDelta=-1;
 		do {
-			++rawDelta;
 			rb = readByte(s);
 			if(rb==header[matchIndex]){
 				++matchIndex;
