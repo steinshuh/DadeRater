@@ -1,5 +1,6 @@
 
 
+import java.awt.Dimension;
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -10,8 +11,17 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
 
+import javax.swing.JFrame;
+
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartPanel;
+import org.jfree.chart.JFreeChart;
 import org.jfree.chart.ui.ApplicationFrame;
 import org.jfree.chart.ui.UIUtils;
+import org.jfree.data.time.Day;
+import org.jfree.data.time.Second;
+import org.jfree.data.time.TimeSeries;
+import org.jfree.data.time.TimeSeriesCollection;
 
 public class Main {
 	
@@ -47,7 +57,33 @@ public class Main {
 	public static void main(String[] args) {
 		if(args.length < 2 || args[0] == "-h") {
 			printUsage(args);
-			System.exit(-1);
+			TimeSeries series = new TimeSeries("time series");
+	        series.add(new Second(new Date(System.currentTimeMillis())), 100 );  
+	        series.add(new Second(new Date(System.currentTimeMillis()+1000)), 150);  
+	        series.add(new Second(new Date(System.currentTimeMillis()+2000)), 70 );  
+	        series.add(new Second(new Date(System.currentTimeMillis()+3000)), 210 );  
+	        series.add(new Second(new Date(System.currentTimeMillis()+4000)), 310);
+	        series.add(new Second(new Date(System.currentTimeMillis()+5000)), 260 );  
+	        TimeSeriesCollection dataset = new TimeSeriesCollection();  
+	        dataset.addSeries(series);  
+	        JFreeChart timechart = ChartFactory.createTimeSeriesChart(  
+	                "Vistors Count Chart", // Title  
+	                "Date",         // X-axis Label 
+	                "Visitors",       // Y-axis Label  
+	                dataset,        // Dataset  
+	                true,          // Show legend  
+	                true,          // Use tooltips  
+	                false          // Generate URLs  
+	        );
+	        
+			JFrame frame = new JFrame();
+			frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+			ChartPanel chartPanel = new ChartPanel(timechart);
+	        chartPanel.setPreferredSize(new Dimension(600, 300));
+			chartPanel.setMouseZoomable(true,false);
+	        frame.setContentPane(chartPanel);
+			frame.pack();
+	        frame.setVisible(true);
 		}
 		if(args.length == 2) {
 			if(args[0].equals("-f")) {
@@ -62,16 +98,13 @@ public class Main {
 					if(entry.getValue().price>0)++priceCount;
 				}
 				System.out.println("price count: "+priceCount);
-				ApplicationFrame frame = ticker.getTimeSeriesFrame();
+				ticker.initializeTimeSeries();
+				JFrame frame = new JFrame();
+				frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		        frame.setContentPane(ticker.chartPanel);
 				frame.pack();
-				UIUtils.positionFrameRandomly(frame);
-				frame.setVisible(true);
-				/*try {
-					Thread.sleep(10000);
-				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}*/
+		        frame.setVisible(true);
+
 			} else if(args[0].equals("-hd")){
 				hexDump(args[1]);
 			} else {
