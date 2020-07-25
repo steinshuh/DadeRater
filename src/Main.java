@@ -7,7 +7,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Date;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.TreeMap;
+
+import org.jfree.chart.ui.ApplicationFrame;
+import org.jfree.chart.ui.UIUtils;
 
 public class Main {
 	
@@ -51,6 +55,23 @@ public class Main {
 					System.err.println("failed to parse "+args[1]);
 					System.exit(-1);
 				}
+				Ticker ticker = getTicker("MSFT");
+				System.out.println("ticker: "+ticker.symbol+" "+ticker.moments.size());
+				int priceCount = 0;
+				for(Entry<Long, Ticker.Moment> entry : ticker.moments.entrySet()) {
+					if(entry.getValue().price>0)++priceCount;
+				}
+				System.out.println("price count: "+priceCount);
+				ApplicationFrame frame = ticker.getTimeSeriesFrame();
+				frame.pack();
+				UIUtils.positionFrameRandomly(frame);
+				frame.setVisible(true);
+				/*try {
+					Thread.sleep(10000);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}*/
 			} else if(args[0].equals("-hd")){
 				hexDump(args[1]);
 			} else {
@@ -58,7 +79,7 @@ public class Main {
 				System.exit(-1);
 			}
 		}
-		System.exit(0);
+		//System.exit(0);
 	}
 
 	public static boolean hexDump(String fname) {
@@ -482,6 +503,8 @@ public class Main {
 		computedMessageSize+=8;
 		if(tradeId<0)return false;
 		if(computedMessageSize!=messageSize)fail();
+		Ticker ticker = getTicker(symbol);
+		ticker.setPrice(t, price, size);
 		return true;
 	}
 
