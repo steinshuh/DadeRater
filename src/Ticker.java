@@ -1,5 +1,17 @@
+import java.util.Date;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.TreeMap;
+
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartPanel;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.ui.ApplicationFrame;
+import org.jfree.data.general.SeriesException;
+import org.jfree.data.time.Second;
+import org.jfree.data.time.TimeSeries;
+import org.jfree.data.time.TimeSeriesCollection;
+import org.jfree.data.xy.XYDataset;
 
 public class Ticker {
 	
@@ -45,6 +57,50 @@ public class Ticker {
 		Moment moment = getMoment(time);
 		moment.price = price;
 		moment.size = size;
+	}
+	
+	//-------- time series
+	public class TimeSeriesFrame extends ApplicationFrame {
+		private static final long serialVersionUID = 1L;
+		public XYDataset dataset = null;
+		public JFreeChart chart = null;
+		public ChartPanel chartPanel = null;
+		public TimeSeries series = null;
+		public Ticker ticker = null;
+		
+		public TimeSeriesFrame(Ticker ticker) {
+			super(ticker.symbol);
+			this.ticker=ticker;
+		}
+		
+		void initialize() {
+			series = new TimeSeries(getTitle());
+			for(Entry<Long, Moment> entry : ticker.moments.entrySet()) {
+				if(entry.getValue().price>0) {
+					Date t = Main.timeStampToDate(entry.getKey());
+					try {
+						series.add(new Second(t), entry.getValue().price);
+					} catch(SeriesException e) {
+						System.err.println("Error adding to series");
+						Main.fail();
+					}
+				}
+			}
+			dataset = new TimeSeriesCollection(series);
+			chart = ChartFactory.createTimeSeriesChart(getTitle(), "time", "price", dataset);
+			chartPanel = new ChartPanel(chart);
+			chartPanel.setPreferredSize(new java.awt.Dimension(500,350));
+			chartPanel.setMouseZoomable(true,false);
+			setContentPane(chartPanel);
+		}
+	}
+	
+	public TimeSeriesFrame timeSeriesFrame = null;
+	public ApplicationFrame getTimeSeriesFrame() {
+		if(timeSeriesFrame==null) {
+			timeSeriesFrame = new TimeSeriesFrame(this);
+		}
+		return timeSeriesFrame;
 	}
 
 }

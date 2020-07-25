@@ -604,7 +604,7 @@ public class Main {
 					if(t<0)return -1;
 					return messageCount;
 				} 
-			}else {
+			} else {
 				matchIndex=0;
 				if(rb==header[matchIndex]){
 					++matchIndex;
