@@ -117,7 +117,17 @@ public class ZoomSyncedChartPanel extends ChartPanel implements Comparable {
 			p.rawZoomOutRange(x,  y);
 		}
 	}
-
+	
+	public void rawRestoreAutoBounds(){
+		super.restoreAutoBounds();
+	}
+	public void restoreAutoBounds(){
+		super.restoreAutoBounds();
+		for(ZoomSyncedChartPanel p : syncedPanels){
+			p.rawRestoreAutoBounds();
+		}
+	}
+	
 	public int compareTo(Object arg) {
 		if(arg == this)return 0;
 		return Integer.compare(hashCode(), arg.hashCode());
