@@ -9,33 +9,36 @@ import java.io.InputStream;
 import java.util.Date;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 import javax.swing.JFrame;
 
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
-import org.jfree.chart.ui.ApplicationFrame;
-import org.jfree.chart.ui.UIUtils;
-import org.jfree.data.time.Day;
 import org.jfree.data.time.Second;
 import org.jfree.data.time.TimeSeries;
 import org.jfree.data.time.TimeSeriesCollection;
 
 public class Main {
-	
+
 	public static Map<String, Ticker> tickers = new TreeMap<String, Ticker>();
-	
+	public static Set<String> symbolFilter = null;
+
 	public static Ticker getTicker(String symbol) {
 		if(tickers.containsKey(symbol)) {
 			return tickers.get(symbol);
 		}
-		Ticker ticker = new Ticker(symbol);
-		tickers.put(symbol, ticker);
-		return ticker;
+		if(symbolFilter==null || symbolFilter.contains(symbol)){
+			Ticker ticker = new Ticker(symbol);
+			tickers.put(symbol, ticker);
+			return ticker;
+		}
+		return null;
 	}
-	
+
 
 	public static void printUsage(String[] invocation) {
 		//invocation config: 
@@ -51,47 +54,67 @@ public class Main {
 		System.out.println("invocation: "+inv);
 		System.out.println("-h            : help (this listing)");
 		System.out.println("-f <filename> : read the given file");
+		System.out.println("-x <symbol>   : symbol to add to the filter");
 		System.out.println("-hd <filename> : read the given and perform a hex dump");
 	}
 
 	public static void main(String[] args) {
-		if(args.length < 2 || args[0] == "-h") {
-			printUsage(args);
-			TimeSeries series = new TimeSeries("time series");
-	        series.add(new Second(new Date(System.currentTimeMillis())), 100 );  
-	        series.add(new Second(new Date(System.currentTimeMillis()+1000)), 150);  
-	        series.add(new Second(new Date(System.currentTimeMillis()+2000)), 70 );  
-	        series.add(new Second(new Date(System.currentTimeMillis()+3000)), 210 );  
-	        series.add(new Second(new Date(System.currentTimeMillis()+4000)), 310);
-	        series.add(new Second(new Date(System.currentTimeMillis()+5000)), 260 );  
-	        TimeSeriesCollection dataset = new TimeSeriesCollection();  
-	        dataset.addSeries(series);  
-	        JFreeChart timechart = ChartFactory.createTimeSeriesChart(  
-	                "Vistors Count Chart", // Title  
-	                "Date",         // X-axis Label 
-	                "Visitors",       // Y-axis Label  
-	                dataset,        // Dataset  
-	                true,          // Show legend  
-	                true,          // Use tooltips  
-	                false          // Generate URLs  
-	        );
-	        
-			JFrame frame = new JFrame();
-			frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-			ChartPanel chartPanel = new ChartPanel(timechart);
-	        chartPanel.setPreferredSize(new Dimension(600, 300));
-			chartPanel.setMouseZoomable(true,false);
-	        frame.setContentPane(chartPanel);
-			frame.pack();
-	        frame.setVisible(true);
-		}
-		if(args.length == 2) {
-			if(args[0].equals("-f")) {
-				if(!parse(args[1])) {
-					System.err.println("failed to parse "+args[1]);
-					System.exit(-1);
+		boolean needToPrintUsage = (args.length == 0);
+		boolean needToIngestFile = false;
+		boolean needToHexDump = false;
+		boolean needToTestGui = false;
+		String fileToIngest = null;
+		String fileToHexDump = null;
+		int argsI = 0;
+		while(argsI < args.length){
+			System.out.println("arg: "+args[argsI]);
+			if(args[argsI].equals("-h")){
+				needToPrintUsage = true;
+				++argsI;
+			}else if(args[argsI].equals("-f")){
+				++argsI;
+				if(argsI < args.length){
+					needToIngestFile = true;
+					fileToIngest = args[argsI];
+					++argsI;
+				} else {
+					needToPrintUsage = true;					
 				}
-				Ticker ticker = getTicker("MSFT");
+			}else if(args[argsI].equals("-hd")){
+				++argsI;
+				if(argsI < args.length){
+					needToHexDump = true;
+					fileToHexDump = args[argsI];
+					++argsI;
+				} else {
+					needToPrintUsage = true;					
+				}
+			}else if(args[argsI].equals("-x")){
+				++argsI;
+				if(argsI < args.length){
+					if(symbolFilter==null){
+						symbolFilter = new TreeSet<String>();
+					}
+					symbolFilter.add(args[argsI]);
+					++argsI;
+				} else {
+					needToPrintUsage = true;					
+				}
+			}else if(args[argsI].equals("-tg")){
+				needToTestGui=true;
+				++argsI;
+			}else{
+				needToPrintUsage = true;
+				++argsI;
+			}
+		}
+		if(needToIngestFile){
+			if(!parse(fileToIngest)) {
+				System.err.println("failed to parse "+args[1]);
+				System.exit(-1);
+			}
+			Ticker ticker = getTicker("MSFT");
+			if(ticker!=null){
 				System.out.println("ticker: "+ticker.symbol+" "+ticker.moments.size());
 				int priceCount = 0;
 				for(Entry<Long, Ticker.Moment> entry : ticker.moments.entrySet()) {
@@ -101,18 +124,51 @@ public class Main {
 				ticker.initializeTimeSeries();
 				JFrame frame = new JFrame();
 				frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		        frame.setContentPane(ticker.chartPanel);
+				frame.setContentPane(ticker.chartPanel);
 				frame.pack();
-		        frame.setVisible(true);
-
-			} else if(args[0].equals("-hd")){
-				hexDump(args[1]);
-			} else {
-				printUsage(args);
-				System.exit(-1);
+				frame.setVisible(true);
 			}
 		}
-		//System.exit(0);
+		if(needToPrintUsage){
+			printUsage(args);
+		}
+		if(needToTestGui){
+			testGui();
+		}
+		if(needToHexDump){
+			hexDump(fileToHexDump);
+		}
+
+	}
+
+	public static void testGui(){
+		TimeSeries series = new TimeSeries("time series");
+		series.add(new Second(new Date(System.currentTimeMillis())), 100 );  
+		series.add(new Second(new Date(System.currentTimeMillis()+1000)), 150);  
+		series.add(new Second(new Date(System.currentTimeMillis()+2000)), 70 );  
+		series.add(new Second(new Date(System.currentTimeMillis()+3000)), 210 );  
+		series.add(new Second(new Date(System.currentTimeMillis()+4000)), 310);
+		series.add(new Second(new Date(System.currentTimeMillis()+5000)), 260 );  
+		TimeSeriesCollection dataset = new TimeSeriesCollection();  
+		dataset.addSeries(series);  
+		JFreeChart timechart = ChartFactory.createTimeSeriesChart(  
+				"Vistors Count Chart", // Title  
+				"Date",         // X-axis Label 
+				"Visitors",       // Y-axis Label  
+				dataset,        // Dataset  
+				true,          // Show legend  
+				true,          // Use tooltips  
+				false          // Generate URLs  
+				);
+
+		JFrame frame = new JFrame();
+		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		ChartPanel chartPanel = new ChartPanel(timechart);
+		chartPanel.setPreferredSize(new Dimension(600, 300));
+		chartPanel.setMouseZoomable(true,false);
+		frame.setContentPane(chartPanel);
+		frame.pack();
+		frame.setVisible(true);
 	}
 
 	public static boolean hexDump(String fname) {
@@ -214,7 +270,7 @@ public class Main {
 			System.out.println(ab+" "+messageCounts.get(ab));
 		}
 		System.out.println("tickers: "+tickers.size());
-		
+
 		return true;
 	}
 
@@ -488,7 +544,9 @@ public class Main {
 		if(price<0)fail();
 		if(computedMessageSize!=messageSize)fail();
 		Ticker ticker = getTicker(symbol);
-		ticker.addBuy(t, price, size);
+		if(ticker!=null){
+			ticker.addBuy(t, price, size);
+		}
 		return true;
 	}
 
@@ -511,7 +569,9 @@ public class Main {
 		if(price<0)fail();
 		if(computedMessageSize!=messageSize)fail();
 		Ticker ticker = getTicker(symbol);
-		ticker.addSell(t, price, size);
+		if(ticker!=null){
+			ticker.addSell(t, price, size);
+		}
 		return true;
 	}
 
@@ -537,7 +597,9 @@ public class Main {
 		if(tradeId<0)return false;
 		if(computedMessageSize!=messageSize)fail();
 		Ticker ticker = getTicker(symbol);
-		ticker.setPrice(t, price, size);
+		if(ticker!=null){
+			ticker.setPrice(t, price, size);
+		}
 		return true;
 	}
 
@@ -557,7 +619,9 @@ public class Main {
 		if(officialPrice<0)return false;
 		if(computedMessageSize!=messageSize)fail();
 		Ticker ticker = getTicker(symbol);
-		ticker.setPrice(t, officialPrice);
+		if(ticker!=null){
+			ticker.setPrice(t, officialPrice);
+		}
 		return true;
 	}
 
