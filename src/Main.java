@@ -13,7 +13,10 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import javax.swing.BoxLayout;
 import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
@@ -52,9 +55,9 @@ public class Main {
 			inv+=invocation[i];
 		}
 		System.out.println("invocation: "+inv);
-		System.out.println("-h            : help (this listing)");
-		System.out.println("-f <filename> : read the given file");
-		System.out.println("-x <symbol>   : symbol to add to the filter");
+		System.out.println("-h             : help (this listing)");
+		System.out.println("-f <filename>  : read the given file");
+		System.out.println("-x <symbol>    : symbol to add to the filter");
 		System.out.println("-hd <filename> : read the given and perform a hex dump");
 	}
 
@@ -113,8 +116,11 @@ public class Main {
 				System.err.println("failed to parse "+args[1]);
 				System.exit(-1);
 			}
-			Ticker ticker = getTicker("MSFT");
-			if(ticker!=null){
+			JFrame frame = new JFrame();
+			frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+			JPanel panel = new JPanel();
+			panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+			for(Ticker ticker : tickers.values()){
 				System.out.println("ticker: "+ticker.symbol+" "+ticker.moments.size());
 				int priceCount = 0;
 				for(Entry<Long, Ticker.Moment> entry : ticker.moments.entrySet()) {
@@ -122,12 +128,14 @@ public class Main {
 				}
 				System.out.println("price count: "+priceCount);
 				ticker.initializeTimeSeries();
-				JFrame frame = new JFrame();
-				frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-				frame.setContentPane(ticker.chartPanel);
-				frame.pack();
-				frame.setVisible(true);
+				
+				panel.add(ticker.chartPanel);
+				
 			}
+			JScrollPane scrollPane = new JScrollPane(panel);
+			frame.setContentPane(scrollPane);
+			frame.pack();
+			frame.setVisible(true);
 		}
 		if(needToPrintUsage){
 			printUsage(args);
