@@ -62,7 +62,7 @@ public class Ticker {
 	//----------- time series -----------
 	public XYDataset dataset = null;
 	public JFreeChart chart = null;
-	public ChartPanel chartPanel = null;
+	public ZoomSyncedChartPanel chartPanel = null;
 	public TimeSeries series = null;
 
 
@@ -81,7 +81,7 @@ public class Ticker {
 		}
 		dataset = new TimeSeriesCollection(series);
 		chart = ChartFactory.createTimeSeriesChart(symbol, "time", "price", dataset, true, true, false);
-		chartPanel = new ChartPanel(chart);
+		chartPanel = new ZoomSyncedChartPanel(chart);
 		chartPanel.setPreferredSize(new java.awt.Dimension(500,350));
 		chartPanel.setMouseZoomable(true,false);
 	}

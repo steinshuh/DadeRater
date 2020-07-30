@@ -130,7 +130,11 @@ public class Main {
 				ticker.initializeTimeSeries();
 				
 				panel.add(ticker.chartPanel);
-				
+			}
+			for(Ticker ticker : tickers.values()){
+				for(Ticker ticker2 : tickers.values()){
+					ticker.chartPanel.addSyncedPanel(ticker2.chartPanel);
+				}
 			}
 			JScrollPane scrollPane = new JScrollPane(panel);
 			frame.setContentPane(scrollPane);
