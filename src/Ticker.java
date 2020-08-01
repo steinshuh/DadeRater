@@ -14,6 +14,25 @@ import org.jfree.data.xy.XYDataset;
 
 public class Ticker {
 
+	public class VolPrice {
+		public int volume;
+		public double price;
+		private double _sumPrice=0;
+		VolPrice(int volume, double price){
+			this.volume=volume;
+			this.price=price;
+			_sumPrice=0;
+		}
+		VolPrice(){
+			volume=0;
+			price=0;
+		}
+		void apply(int volume, long price) {
+			_sumPrice+=volume*(price/10000);
+			this.volume+=volume;
+		}
+	}
+	
 	public class Moment {
 		public Moment() {}
 		long price=0;
@@ -58,6 +77,9 @@ public class Ticker {
 		moment.size = size;
 	}
 
+	public Pair<Integer, Double> getComparativePrice(long t, long duration){
+		
+	}
 
 	//----------- time series -----------
 	public XYDataset dataset = null;
