@@ -4,7 +4,6 @@ import java.util.Map.Entry;
 import java.util.TreeMap;
 
 import org.jfree.chart.ChartFactory;
-import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
 import org.jfree.data.general.SeriesException;
 import org.jfree.data.time.Second;
@@ -14,27 +13,16 @@ import org.jfree.data.xy.XYDataset;
 
 public class Ticker {
 
-	public class VolPrice {
-		public int volume;
-		public double price;
-		private double _sumPrice=0;
-		VolPrice(int volume, double price){
-			this.volume=volume;
-			this.price=price;
-			_sumPrice=0;
-		}
-		VolPrice(){
-			volume=0;
-			price=0;
-		}
-		void apply(int volume, long price) {
-			_sumPrice+=volume*(price/10000);
-			this.volume+=volume;
-		}
-	}
-
 	public class Moment {
 		public Moment() {}
+		public Moment(Moment moment) {
+			price=moment.price;
+			size=moment.size;
+		}
+		public Moment(long price, int size) {
+			this.price=price;
+			this.size=size;
+		}
 		long price=0;
 		int size=0;
 		Map<Long,Integer> sells = new TreeMap<Long,Integer>();
@@ -43,6 +31,9 @@ public class Ticker {
 
 	public String symbol;
 	public TreeMap<Long,Moment> moments = new TreeMap<Long,Moment>();
+	
+	public TreeMap<Long,Moment> representativeMoments = new TreeMap<Long,Moment>();
+	public long representativeMomentDuration = 0;
 
 	public Ticker(String symbol) {
 		this.symbol=symbol;
@@ -55,6 +46,65 @@ public class Ticker {
 		Moment moment = new Moment();
 		moments.put(time, moment);
 		return moment;
+	}
+	
+	public static double computeCorrelation(Moment moment, Moment otherMoment) {
+		if(moment==null || otherMoment==null)return 0;
+		//comparing a moment wont work
+		return 0;
+	}
+	
+	public TreeMap<Long, Double> computeCorrelation(long duration, Ticker ticker) {
+		ticker.computeRepresentativeMoments(duration);
+		computeRepresentativeMoments(duration);
+		TreeMap<Long, Double> correlation = new TreeMap<Long, Double>();
+		for(Entry<Long, Moment> entry : representativeMoments.entrySet()) {
+			correlation.put(entry.getKey(), computeCorrelation(entry.getValue(), ticker.getRepresentativeMoment(entry.getKey())));
+		}
+		return correlation;
+	}
+	
+	public Moment getRepresentativeMoment(long time) {
+		if(representativeMoments==null ||representativeMoments.isEmpty()) return null;
+		Entry<Long, Moment> entry = moments.floorEntry(time);
+		if(entry.getKey() < time-representativeMomentDuration) {
+			return null;
+		}
+		return entry.getValue();
+	}
+	
+	public int computeRepresentativeMoments(long duration) {
+		if(duration==representativeMomentDuration) {
+			return representativeMoments.size();
+		}
+		representativeMomentDuration=duration;
+		representativeMoments.clear();
+		Entry<Long,Moment> entry = moments.firstEntry();
+		do {
+			Moment moment = computeRepresentativeMoment(entry.getKey(), duration);
+			if(moment==null) {
+				entry=null;
+			}else {
+				representativeMoments.put(entry.getKey(), moment);
+				entry = moments.ceilingEntry(entry.getKey()+duration);
+			}
+		}while(entry==null);
+		return representativeMoments.size();
+	}
+	
+	public Moment computeRepresentativeMoment(long time, long duration) {
+		long halfD = duration/2;
+		Entry<Long, Moment> entry = moments.ceilingEntry(time-halfD);
+		if(entry==null || entry.getKey()>time+duration) {
+			return null;
+		}
+		long sumPrice=0;
+		int sumVolume=0;
+		do {
+			sumPrice+=entry.getValue().price * entry.getValue().size;
+			sumVolume+=entry.getValue().size;
+		}while(entry!=null);
+		return new Moment(sumPrice/sumVolume,sumVolume);
 	}
 
 	//greatest key less than time
