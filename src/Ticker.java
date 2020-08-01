@@ -32,7 +32,7 @@ public class Ticker {
 			this.volume+=volume;
 		}
 	}
-	
+
 	public class Moment {
 		public Moment() {}
 		long price=0;
@@ -42,7 +42,7 @@ public class Ticker {
 	}
 
 	public String symbol;
-	public Map<Long,Moment> moments = new TreeMap<Long,Moment>();
+	public TreeMap<Long,Moment> moments = new TreeMap<Long,Moment>();
 
 	public Ticker(String symbol) {
 		this.symbol=symbol;
@@ -55,6 +55,34 @@ public class Ticker {
 		Moment moment = new Moment();
 		moments.put(time, moment);
 		return moment;
+	}
+
+	//greatest key less than time
+	public Moment lowerMoment(long time) {
+		Entry<Long, Moment> entry = moments.lowerEntry(time);
+		if(entry==null)return null;
+		return entry.getValue();
+	}
+
+	//least key greater than time
+	public Moment higherMoment(long time) {
+		Entry<Long, Moment> entry = moments.higherEntry(time);
+		if(entry==null)return null;
+		return entry.getValue();
+	}
+
+	//greatest key less than or equal to time
+	public Moment floorMoment(long time) {
+		Entry<Long, Moment> entry = moments.floorEntry(time);
+		if(entry==null)return null;
+		return entry.getValue();
+	}
+
+	//least key greater than or equal to time
+	public Moment ceilingMoment(long time) {
+		Entry<Long, Moment> entry = moments.ceilingEntry(time);
+		if(entry==null)return null;
+		return entry.getValue();		
 	}
 
 	public void addSell(long time, long value, int volume) {
@@ -77,9 +105,6 @@ public class Ticker {
 		moment.size = size;
 	}
 
-	public Pair<Integer, Double> getComparativePrice(long t, long duration){
-		
-	}
 
 	//----------- time series -----------
 	public XYDataset dataset = null;
