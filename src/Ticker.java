@@ -31,7 +31,7 @@ public class Ticker {
 
 	public String symbol;
 	public TreeMap<Long,Moment> moments = new TreeMap<Long,Moment>();
-	
+
 	public TreeMap<Long,Moment> representativeMoments = new TreeMap<Long,Moment>();
 	public TreeMap<Long,Double> representativeSlopes = new TreeMap<Long, Double>();
 	public long representativeMomentDuration = 0;
@@ -48,7 +48,7 @@ public class Ticker {
 		moments.put(time, moment);
 		return moment;
 	}
-	
+
 	public static double computeCorrelation(Double slope, Double otherSlope) {
 		if(slope==null || otherSlope==null)return 0;
 		double ds = slope-otherSlope;
@@ -61,19 +61,23 @@ public class Ticker {
 		}
 		return 0;
 	}
-	
+
 	public TreeMap<Long, Double> computeCorrelation(long duration, Ticker ticker) {
+		System.out.println("computeCorrelation("+duration+", "+ticker.symbol);
 		ticker.computeRepresentativeMoments(duration);
+		System.out.println("done");
 		computeRepresentativeMoments(duration);
+		System.out.println("no really, I'm done");
 		TreeMap<Long, Double> correlation = new TreeMap<Long, Double>();
 		for(Entry<Long, Double> entry : representativeSlopes.entrySet()) {
+			System.out.println(entry);
 			correlation.put(entry.getKey(), 
 					computeCorrelation(entry.getValue(), 
 							ticker.getRepresentativeSlope(entry.getKey())));
 		}
 		return correlation;
 	}
-	
+
 	public Double getRepresentativeSlope(long time){
 		if(representativeSlopes==null||representativeSlopes.isEmpty())return null;
 		Entry<Long, Double> entry = representativeSlopes.floorEntry(time);
@@ -83,7 +87,7 @@ public class Ticker {
 		}
 		return entry.getValue();
 	}
-	
+
 	public Moment getRepresentativeMoment(long time) {
 		if(representativeMoments==null ||representativeMoments.isEmpty()) return null;
 		Entry<Long, Moment> entry = representativeMoments.floorEntry(time);
@@ -92,7 +96,7 @@ public class Ticker {
 		}
 		return entry.getValue();
 	}
-	
+
 	public int computeRepresentativeMoments(long duration) {
 		if(duration==representativeMomentDuration) {
 			return representativeMoments.size();
@@ -103,21 +107,24 @@ public class Ticker {
 		Entry<Long,Moment> entry = moments.firstEntry();
 		Entry<Long,Moment> previousEntry = entry;
 		do {
+			System.out.println(entry);
 			Moment moment = computeRepresentativeMoment(entry.getKey(), duration);
 			if(moment==null) {
 				entry=null;
 			}else {
 				representativeMoments.put(entry.getKey(), moment);
-				representativeSlopes.put(entry.getKey(), 
-						(double) ((entry.getValue().price-previousEntry.getValue().price)/
-						(previousEntry.getValue().price)));
+				if(previousEntry.getValue().price!=0) {
+					representativeSlopes.put(entry.getKey(), 
+							(double) ((entry.getValue().price-previousEntry.getValue().price)/
+									(previousEntry.getValue().price)));
+				}
 				previousEntry = entry;
 				entry = moments.ceilingEntry(entry.getKey()+duration);
 			}
 		}while(entry==null);
 		return representativeMoments.size();
 	}
-	
+
 	public Moment computeRepresentativeMoment(long time, long duration) {
 		long halfD = duration/2;
 		Entry<Long, Moment> entry = moments.ceilingEntry(time-halfD);
@@ -129,6 +136,7 @@ public class Ticker {
 		do {
 			sumPrice+=entry.getValue().price * entry.getValue().size;
 			sumVolume+=entry.getValue().size;
+			entry=moments.higherEntry(entry.getKey());
 		}while(entry!=null);
 		return new Moment(sumPrice/sumVolume,sumVolume);
 	}

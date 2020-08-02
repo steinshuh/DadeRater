@@ -21,13 +21,17 @@ import javax.swing.JScrollPane;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
+import org.jfree.data.general.SeriesException;
 import org.jfree.data.time.Second;
 import org.jfree.data.time.TimeSeries;
 import org.jfree.data.time.TimeSeriesCollection;
+import org.jfree.data.xy.XYDataset;
+
 
 public class Main {
 
 	public static Map<String, Ticker> tickers = new TreeMap<String, Ticker>();
+	public static TreeMap<String, TreeSet<String>> comparisons = new TreeMap<String, TreeSet<String>>();
 	public static Set<String> symbolFilter = null;
 
 	public static Ticker getTicker(String symbol) {
@@ -59,6 +63,7 @@ public class Main {
 		System.out.println("-f <filename>  : read the given file");
 		System.out.println("-x <symbol>    : symbol to add to the filter");
 		System.out.println("-hd <filename> : read the given and perform a hex dump");
+		System.out.println("-c <symbol> <symbol> : compare two symbols");
 	}
 
 	public static void main(String[] args) {
@@ -106,6 +111,28 @@ public class Main {
 			}else if(args[argsI].equals("-tg")){
 				needToTestGui=true;
 				++argsI;
+			}else if(args[argsI].equals("-c")){
+				++argsI;
+				if(argsI < args.length){
+					String firstSymbol = args[argsI];
+					++argsI;
+					if(argsI < args.length) {
+						String secondSymbol = args[argsI];
+						TreeSet<String> secondSymbols=null;
+						if(comparisons.containsKey(firstSymbol)) {
+							secondSymbols=comparisons.get(firstSymbol);
+						} else {
+							secondSymbols=new TreeSet<String>();
+							comparisons.put(firstSymbol, secondSymbols);
+						}
+						secondSymbols.add(secondSymbol);
+					} else {
+						needToPrintUsage = true;
+					}
+					++argsI;
+				} else {
+					needToPrintUsage = true;					
+				}
 			}else{
 				needToPrintUsage = true;
 				++argsI;
@@ -128,7 +155,7 @@ public class Main {
 				}
 				System.out.println("price count: "+priceCount);
 				ticker.initializeTimeSeries();
-				
+
 				panel.add(ticker.chartPanel);
 			}
 			for(Ticker ticker : tickers.values()){
@@ -149,6 +176,40 @@ public class Main {
 		}
 		if(needToHexDump){
 			hexDump(fileToHexDump);
+		}
+		if(!comparisons.isEmpty()) {
+			JFrame frame = new JFrame();
+			frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+			JPanel panel = new JPanel();
+			panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+			for(Entry<String, TreeSet<String>> entry : comparisons.entrySet()) {
+				Ticker ticker = getTicker(entry.getKey());
+				for(String symbol : entry.getValue()) {
+					Ticker ticker2 = getTicker(symbol);
+					String name = ticker.symbol+" vs "+ticker2.symbol;
+					TreeMap<Long, Double> comparison = ticker.computeCorrelation(10l, ticker2);
+					TimeSeries series = new TimeSeries(name);
+					for(Entry<Long, Double> comparisonEntry : comparison.entrySet()) {
+						Date t = timeStampToDate(comparisonEntry.getKey());
+						try {
+							series.addOrUpdate(new Second(t), comparisonEntry.getValue());
+						} catch(SeriesException e) {
+							System.err.println("Error adding to series: "+e);
+							Main.fail();
+						}
+					}
+					XYDataset dataset = new TimeSeriesCollection(series);
+					JFreeChart chart = ChartFactory.createTimeSeriesChart(name, "time", "corelation", dataset, true, true, false);
+					ZoomSyncedChartPanel chartPanel = new ZoomSyncedChartPanel(chart);
+					chartPanel.setPreferredSize(new java.awt.Dimension(500,350));
+					chartPanel.setMouseZoomable(true,false);
+					panel.add(chartPanel);
+				}
+			}
+			JScrollPane scrollPane = new JScrollPane(panel);
+			frame.setContentPane(scrollPane);
+			frame.pack();
+			frame.setVisible(true);
 		}
 
 	}
