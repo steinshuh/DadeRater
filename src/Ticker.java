@@ -33,7 +33,7 @@ public class Ticker {
 	public TreeMap<Long,Moment> moments = new TreeMap<Long,Moment>();
 
 	public TreeMap<Long,Moment> representativeMoments = new TreeMap<Long,Moment>();
-	public TreeMap<Long,Double> representativeSlopes = new TreeMap<Long, Double>();
+	public TreeMap<Long,Double> representativeDeltas = new TreeMap<Long, Double>();
 	public long representativeMomentDuration = 0;
 
 	public Ticker(String symbol) {
@@ -49,9 +49,17 @@ public class Ticker {
 		return moment;
 	}
 
-	public static double computeCorrelation(Double slope, Double otherSlope) {
-		if(slope==null || otherSlope==null)return 0;
-		double ds = slope-otherSlope;
+	public static double computeCorrelation(
+			Entry<Long, Double> delta, 
+			Entry<Long, Double> otherDelta) {
+		if(delta==null){
+			if(otherDelta==null) return 1;
+			return 0;
+		}
+		if(otherDelta==null)return 0;
+		double deltaV = delta.getValue();
+		double otherDeltaV = otherDelta.getValue();		
+		double ds = otherDeltaV-deltaV;
 		double magDs = Math.abs(ds);
 		final double limit = 0.1;
 		if(magDs<limit){
@@ -65,28 +73,23 @@ public class Ticker {
 	public TreeMap<Long, Double> computeCorrelation(long duration, Ticker ticker) {
 		System.out.println("computeCorrelation("+duration+", "+ticker.symbol);
 		ticker.computeRepresentativeMoments(duration);
-		System.out.println("done");
+		System.out.println("done (ticker): "+ticker.representativeMoments.size()
+				+", "+ticker.representativeDeltas.size());
 		computeRepresentativeMoments(duration);
-		System.out.println("no really, I'm done");
+		System.out.println("done (this): "+this.representativeMoments.size()
+				+", "+this.representativeDeltas.size());
 		TreeMap<Long, Double> correlation = new TreeMap<Long, Double>();
-		for(Entry<Long, Double> entry : representativeSlopes.entrySet()) {
-			System.out.println(entry);
-			correlation.put(entry.getKey(), 
-					computeCorrelation(entry.getValue(), 
-							ticker.getRepresentativeSlope(entry.getKey())));
+		for(Entry<Long, Double> entry : this.representativeDeltas.entrySet()){
+			Entry<Long, Double> otherDelta = 
+					ticker.representativeDeltas.ceilingEntry(entry.getKey());
+			double c = computeCorrelation(entry, otherDelta);
+			correlation.put(entry.getKey(), c);
 		}
+		System.out.println("no really, I'm done");
 		return correlation;
 	}
 
-	public Double getRepresentativeSlope(long time){
-		if(representativeSlopes==null||representativeSlopes.isEmpty())return null;
-		Entry<Long, Double> entry = representativeSlopes.floorEntry(time);
-		if(entry==null)return null;
-		if(entry.getKey()<time-representativeMomentDuration){
-			return null;
-		}
-		return entry.getValue();
-	}
+	
 
 	public Moment getRepresentativeMoment(long time) {
 		if(representativeMoments==null ||representativeMoments.isEmpty()) return null;
@@ -103,25 +106,48 @@ public class Ticker {
 		}
 		representativeMomentDuration=duration;
 		representativeMoments.clear();
-		representativeSlopes.clear();
-		Entry<Long,Moment> entry = moments.firstEntry();
-		Entry<Long,Moment> previousEntry = entry;
-		do {
-			System.out.println(entry);
-			Moment moment = computeRepresentativeMoment(entry.getKey(), duration);
-			if(moment==null) {
-				entry=null;
-			}else {
-				representativeMoments.put(entry.getKey(), moment);
-				if(previousEntry.getValue().price!=0) {
-					representativeSlopes.put(entry.getKey(), 
-							(double) ((entry.getValue().price-previousEntry.getValue().price)/
-									(previousEntry.getValue().price)));
+		representativeDeltas.clear();
+		Entry<Long,Moment> foot = null;
+		long priceSum=0;
+		int priceCount=0;
+		Moment previousMoment = null;
+		Moment representativeMoment = null;
+		for(Entry<Long, Moment> entry : moments.entrySet()){
+			if(foot==null || foot.getKey()+duration <= entry.getKey()){
+				if(foot!=null){
+					if(priceCount==0)priceCount=1;
+					representativeMoment = new Moment(priceSum/priceCount, priceCount);
+					representativeMoments.put(foot.getKey(), representativeMoment);
+					if(previousMoment!=null){
+						//Moment deltaMoment = 
+						//		new Moment(representativeMoment.price-previousMoment.price,
+						//				representativeMoment.size-previousMoment.size);
+						Double d = 0==previousMoment.price?0:(double)(representativeMoment.price/previousMoment.price);
+						representativeDeltas.put(foot.getKey(), d);
+					}
 				}
-				previousEntry = entry;
-				entry = moments.ceilingEntry(entry.getKey()+duration);
+				previousMoment=representativeMoment;
+				foot=entry;
+				priceSum=entry.getValue().price;
+				priceCount=entry.getValue().size;
+			}else{
+				priceSum+=entry.getValue().price;
+				priceCount+=entry.getValue().size;
 			}
-		}while(entry==null);
+		}
+		if(foot!=null){
+			if(priceCount==0)priceCount=1;
+			representativeMoment = new Moment(priceSum/priceCount, priceCount);
+			representativeMoments.put(foot.getKey(), representativeMoment);
+			if(previousMoment!=null){
+				Moment deltaMoment = 
+						new Moment(representativeMoment.price-previousMoment.price,
+								representativeMoment.size-previousMoment.size);
+				Double d = (double)(deltaMoment.price/1000);
+				representativeDeltas.put(foot.getKey(), d);
+			}
+		}
+		
 		return representativeMoments.size();
 	}
 
