@@ -52,22 +52,31 @@ public class Ticker {
 	public static double computeCorrelation(
 			Entry<Long, Double> delta, 
 			Entry<Long, Double> otherDelta) {
-		if(delta==null){
-			if(otherDelta==null) return 1;
-			return 0;
-		}
+		if(delta==null)return 0;
 		if(otherDelta==null)return 0;
 		double deltaV = delta.getValue();
 		double otherDeltaV = otherDelta.getValue();		
-		double ds = otherDeltaV-deltaV;
-		double magDs = Math.abs(ds);
-		final double limit = 0.1;
-		if(magDs<limit){
-			return ds;
-		}else if(magDs>1-limit){
-			return ds;
+		
+		double dv=deltaV-otherDeltaV;
+		double cv=1/(1+Math.abs(dv));
+		
+		if(deltaV>=0){
+			if(otherDeltaV>=0){
+				//positively correlated
+				return cv;
+			}else{
+				//negatively correlated
+				return -cv;
+			}
+		}else{
+			if(otherDeltaV<0){
+				//positively correlated
+				return cv;
+			}else{
+				//negatively correlated
+				return -cv;
+			}
 		}
-		return 0;
 	}
 
 	public TreeMap<Long, Double> computeCorrelation(long duration, Ticker ticker) {
@@ -149,22 +158,6 @@ public class Ticker {
 		}
 		
 		return representativeMoments.size();
-	}
-
-	public Moment computeRepresentativeMoment(long time, long duration) {
-		long halfD = duration/2;
-		Entry<Long, Moment> entry = moments.ceilingEntry(time-halfD);
-		if(entry==null || entry.getKey()>time+duration) {
-			return null;
-		}
-		long sumPrice=0;
-		int sumVolume=0;
-		do {
-			sumPrice+=entry.getValue().price * entry.getValue().size;
-			sumVolume+=entry.getValue().size;
-			entry=moments.higherEntry(entry.getKey());
-		}while(entry!=null);
-		return new Moment(sumPrice/sumVolume,sumVolume);
 	}
 
 	//greatest key less than time
