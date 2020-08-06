@@ -84,6 +84,7 @@ public class Main {
 				if(argsI < args.length){
 					needToIngestFile = true;
 					fileToIngest = args[argsI];
+					System.out.println("\t"+fileToIngest);
 					++argsI;
 				} else {
 					needToPrintUsage = true;					
@@ -93,6 +94,7 @@ public class Main {
 				if(argsI < args.length){
 					needToHexDump = true;
 					fileToHexDump = args[argsI];
+					System.out.println("\t"+fileToHexDump);
 					++argsI;
 				} else {
 					needToPrintUsage = true;					
@@ -104,6 +106,7 @@ public class Main {
 						symbolFilter = new TreeSet<String>();
 					}
 					symbolFilter.add(args[argsI]);
+					System.out.println("\t"+args[argsI]);					
 					++argsI;
 				} else {
 					needToPrintUsage = true;					
@@ -115,9 +118,11 @@ public class Main {
 				++argsI;
 				if(argsI < args.length){
 					String firstSymbol = args[argsI];
+					System.out.println("\t"+firstSymbol);
 					++argsI;
 					if(argsI < args.length) {
 						String secondSymbol = args[argsI];
+						System.out.println("\t"+secondSymbol);
 						TreeSet<String> secondSymbols=null;
 						if(comparisons.containsKey(firstSymbol)) {
 							secondSymbols=comparisons.get(firstSymbol);
