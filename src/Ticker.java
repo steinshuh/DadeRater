@@ -85,10 +85,10 @@ public class Ticker {
 		System.out.println("computeCorrelation("+duration+", "+ticker.symbol);
 		ticker.computeRepresentativeMoments(duration);
 		System.out.println("done (ticker): "+ticker.representativeMoments.size()
-				+", "+ticker.representativeDeltas.size());
+		+", "+ticker.representativeDeltas.size());
 		computeRepresentativeMoments(duration);
 		System.out.println("done (this): "+this.representativeMoments.size()
-				+", "+this.representativeDeltas.size());
+		+", "+this.representativeDeltas.size());
 		TreeMap<Long, Double> correlation = new TreeMap<Long, Double>();
 		for(Entry<Long, Double> entry : this.representativeDeltas.entrySet()){
 			Entry<Long, Double> otherDelta = 
@@ -243,12 +243,12 @@ public class Ticker {
 		try {writer.write("\n");}
 		catch (IOException e) {die("dumpMoments: failed to write a newline "+filename,e);}
 		for(Entry<Long, Moment> entry : moments.entrySet()){
-			try {writer.write(""+Main.nanoSecondsToDays(entry.getKey()));}
+			try {writer.write(""+Main.nsToExcelDays(entry.getKey()));}
 			catch (IOException e) {die("dumpMoments: failed to write time value "+filename,e);}
 			i=0;
 			if(entry.getValue().buys!=null){
 				for(Entry<Long, Integer> buyEntry : entry.getValue().buys.entrySet()){
-					try {writer.write(", "+buyEntry.getKey().toString());}
+					try {writer.write(", "+((double)buyEntry.getKey())/10000d);}
 					catch (IOException e) {die("dumpMoments: failed to write buy value "+filename,e);}
 					++i;
 				}
@@ -257,17 +257,16 @@ public class Ticker {
 				try {writer.write(", ");}
 				catch (IOException e) {die("dumpMoments: failed to write a comma "+filename,e);}
 			}
-			if(maxBuys>0)
-				try {writer.write(", ");}
+			try {writer.write(", ");}
 			catch (IOException e) {die("dumpMoments: failed to write a comma "+filename,e);}
 			if(entry.getValue().price>0){
-				try {writer.write(""+entry.getValue().price);}
+				try {writer.write(""+((double)entry.getValue().price)/10000d);}
 				catch (IOException e) {die("dumpMoments: failed to write price value "+filename,e);}
 			}
 			i=0;
 			if(entry.getValue().sells!=null){
 				for(Entry<Long, Integer> sellEntry : entry.getValue().sells.entrySet()){
-					try {writer.write(", "+sellEntry.getKey().toString());}
+					try {writer.write(", "+((double)sellEntry.getKey())/10000d);}
 					catch (IOException e) {die("dumpMoments: failed to write sell value "+filename,e);}
 				}
 				++i;

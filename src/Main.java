@@ -871,6 +871,10 @@ public class Main {
 		return rb;
 	}
 	
+	public static double nsToExcelDays(long ns) {
+		return nanoSecondsToDays(ns)+25569;
+	}
+	
 	public static double nanoSecondsToDays(long nanoSeconds){
 		long milliSeconds=nanoSeconds/(1000000);
 		double seconds = (double)(milliSeconds)/1000d;
