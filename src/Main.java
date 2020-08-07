@@ -4,6 +4,7 @@ import java.awt.Dimension;
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Date;
@@ -33,6 +34,8 @@ public class Main {
 	public static Map<String, Ticker> tickers = new TreeMap<String, Ticker>();
 	public static TreeMap<String, TreeSet<String>> comparisons = new TreeMap<String, TreeSet<String>>();
 	public static Set<String> symbolFilter = null;
+	//filename, symbols
+	public static TreeMap<String, TreeSet<String>> dumps = new TreeMap<String, TreeSet<String>>();
 
 	public static Ticker getTicker(String symbol) {
 		if(tickers.containsKey(symbol)) {
@@ -45,7 +48,11 @@ public class Main {
 		}
 		return null;
 	}
-
+	public static void die(String message, Exception e){
+		e.printStackTrace();
+		System.err.println(message+", "+e);
+		System.exit(-1);
+	}
 
 	public static void printUsage(String[] invocation) {
 		//invocation config: 
@@ -59,11 +66,12 @@ public class Main {
 			inv+=invocation[i];
 		}
 		System.out.println("invocation: "+inv);
-		System.out.println("-h             : help (this listing)");
-		System.out.println("-f <filename>  : read the given file");
-		System.out.println("-x <symbol>    : symbol to add to the filter");
-		System.out.println("-hd <filename> : read the given and perform a hex dump");
-		System.out.println("-c <symbol> <symbol> : compare two symbols");
+		System.out.println("-h                      : help (this listing)");
+		System.out.println("-f <filename>           : read the given file");
+		System.out.println("-x <symbol>             : symbol to add to the filter");
+		System.out.println("-hd <filename>          : read the given and perform a hex dump");
+		System.out.println("-c <symbol> <symbol>    : compare two symbols");
+		System.out.println("-df <symbol> <filename> : dump symbol data to the given file");
 	}
 
 	public static void main(String[] args) {
@@ -71,6 +79,7 @@ public class Main {
 		boolean needToIngestFile = false;
 		boolean needToHexDump = false;
 		boolean needToTestGui = false;
+		boolean needToDumpFile = false;
 		String fileToIngest = null;
 		String fileToHexDump = null;
 		int argsI = 0;
@@ -79,6 +88,31 @@ public class Main {
 			if(args[argsI].equals("-h")){
 				needToPrintUsage = true;
 				++argsI;
+			}else if(args[argsI].equals("-df")){
+				++argsI;
+				if(argsI < args.length){
+					String symbol = args[argsI];
+					System.out.println("\t"+symbol);
+					++argsI;
+					if(argsI < args.length){
+						needToDumpFile = true;
+						String fileToDump = args[argsI];
+						TreeSet<String> symbolsToDump = null;
+						if(!dumps.containsKey(fileToDump)){
+							symbolsToDump = new TreeSet<String>();
+							dumps.put(fileToDump, symbolsToDump);
+						}else{
+							symbolsToDump=dumps.get(fileToDump);
+						}
+						symbolsToDump.add(symbol);
+						System.out.println("\t"+fileToDump);
+						++argsI;
+					} else {
+						needToPrintUsage = true;					
+					}
+				} else {
+					needToPrintUsage = true;										
+				}
 			}else if(args[argsI].equals("-f")){
 				++argsI;
 				if(argsI < args.length){
@@ -215,6 +249,31 @@ public class Main {
 			frame.setContentPane(scrollPane);
 			frame.pack();
 			frame.setVisible(true);
+		}
+		if(needToDumpFile){
+			for(Entry<String,TreeSet<String>> entry : dumps.entrySet()){
+				String fileToDump = entry.getKey();
+				TreeSet<String> symbolsToDump = entry.getValue();
+				FileWriter writer = null;
+				try {
+					writer = new FileWriter(fileToDump);
+				} catch (IOException e) {
+					die("failed to open file: "+fileToDump,e);
+				}
+				if(writer==null)die("failed to open file: "+fileToDump,
+						new Exception());
+				for(String symbol : symbolsToDump){
+					Ticker ticker = tickers.get(symbol);
+					if(ticker!=null){
+						ticker.dumpMoments(fileToDump, writer);
+					}
+				}
+				try {
+					writer.close();
+				} catch (IOException e) {
+					die("failed to close file: "+fileToDump,e);
+				}
+			}
 		}
 
 	}
@@ -810,5 +869,11 @@ public class Main {
 			}
 		}while(rb>=0);
 		return rb;
+	}
+	
+	public static double nanoSecondsToDays(long nanoSeconds){
+		long milliSeconds=nanoSeconds/(1000000);
+		double seconds = (double)(milliSeconds)/1000d;
+		return seconds/(60*60*24);
 	}
 }

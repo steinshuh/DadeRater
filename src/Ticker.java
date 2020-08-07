@@ -1,3 +1,5 @@
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.Date;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -56,10 +58,10 @@ public class Ticker {
 		if(otherDelta==null)return 0;
 		double deltaV = delta.getValue();
 		double otherDeltaV = otherDelta.getValue();		
-		
+
 		double dv=deltaV-otherDeltaV;
 		double cv=1/(1+Math.abs(dv));
-		
+
 		if(deltaV>=0){
 			if(otherDeltaV>=0){
 				//positively correlated
@@ -98,7 +100,7 @@ public class Ticker {
 		return correlation;
 	}
 
-	
+
 
 	public Moment getRepresentativeMoment(long time) {
 		if(representativeMoments==null ||representativeMoments.isEmpty()) return null;
@@ -156,7 +158,7 @@ public class Ticker {
 				representativeDeltas.put(foot.getKey(), d);
 			}
 		}
-		
+
 		return representativeMoments.size();
 	}
 
@@ -206,6 +208,73 @@ public class Ticker {
 		Moment moment = getMoment(time);
 		moment.price = price;
 		moment.size = size;
+	}
+	public void die(String message, Exception e){
+		Main.die(message, e);;
+	}
+	public void dumpMoments(String filename, FileWriter writer){
+		int maxBuys = 0;
+		int maxSells = 0;
+		for(Entry<Long, Moment> entry : moments.entrySet()){
+			if(entry.getValue().buys!=null &&
+					entry.getValue().buys.size() > maxBuys)
+				maxBuys=entry.getValue().buys.size();
+			if(entry.getValue().sells!=null &&
+					entry.getValue().sells.size() > maxSells)
+				maxSells=entry.getValue().sells.size();
+		}
+
+		try {
+			writer.write("time");
+		} catch (IOException e) {
+			die("dumpMoments: failed to write time header "+filename,e);
+		}
+		int i=0;
+		for(i=0;i<maxBuys;++i){
+			try {writer.write(", buy_"+i);}
+			catch (IOException e) {die("dumpMoments: failed to write buy header "+filename,e);}
+		}
+		try {writer.write(", price");}
+		catch (IOException e) {die("dumpMoments: failed to write price header "+filename,e);}
+		for(i=0;i<maxSells;++i){
+			try {writer.write(", sell_"+i);}
+			catch (IOException e) {die("dumpMoments: failed to write sell header "+filename,e);}
+		}
+		try {writer.write("\n");}
+		catch (IOException e) {die("dumpMoments: failed to write a newline "+filename,e);}
+		for(Entry<Long, Moment> entry : moments.entrySet()){
+			try {writer.write(""+Main.nanoSecondsToDays(entry.getKey()));}
+			catch (IOException e) {die("dumpMoments: failed to write time value "+filename,e);}
+			i=0;
+			if(entry.getValue().buys!=null){
+				for(Entry<Long, Integer> buyEntry : entry.getValue().buys.entrySet()){
+					try {writer.write(", "+buyEntry.getKey().toString());}
+					catch (IOException e) {die("dumpMoments: failed to write buy value "+filename,e);}
+					++i;
+				}
+			}
+			for(;i<maxBuys;++i){
+				try {writer.write(", ");}
+				catch (IOException e) {die("dumpMoments: failed to write a comma "+filename,e);}
+			}
+			if(maxBuys>0)
+				try {writer.write(", ");}
+			catch (IOException e) {die("dumpMoments: failed to write a comma "+filename,e);}
+			if(entry.getValue().price>0){
+				try {writer.write(""+entry.getValue().price);}
+				catch (IOException e) {die("dumpMoments: failed to write price value "+filename,e);}
+			}
+			i=0;
+			if(entry.getValue().sells!=null){
+				for(Entry<Long, Integer> sellEntry : entry.getValue().sells.entrySet()){
+					try {writer.write(", "+sellEntry.getKey().toString());}
+					catch (IOException e) {die("dumpMoments: failed to write sell value "+filename,e);}
+				}
+				++i;
+			}
+			try {writer.write("\n");}
+			catch (IOException e) {die("dumpMoments: failed to write a newline "+filename,e);}
+		}		
 	}
 
 
