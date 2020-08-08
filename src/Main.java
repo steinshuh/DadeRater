@@ -58,6 +58,7 @@ public class Main {
 		//invocation config: 
 		// args: -f ./data/20200716_IEXTP1_DEEP1.0.pcap
 		//       -f ./data/20180127_IEXTP1_DEEP1.0.pcap
+		//       -f ./data/20200716_IEXTP1_DEEP1.0.pcap -x MSFT -x GOOGL -x AAPL -c AAPL MSFT -c AAPL GOOGL -c MSFT AAPL -c MSFT GOOGL -c GOOGL AAPL -c GOOGL MSFT -df AAPL aapl.csv -df MSFT msft.csv -df GOOGL googl.csv
 		// VM args: -Xms12g -Xmx12g
 		// takes about a minute to run
 		String inv = "["+invocation.length+"]";
