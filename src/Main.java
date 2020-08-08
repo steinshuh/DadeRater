@@ -276,7 +276,7 @@ public class Main {
 				}
 			}
 		}
-
+		System.out.println("ok");
 	}
 
 	public static void testGui(){

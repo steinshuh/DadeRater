@@ -82,13 +82,8 @@ public class Ticker {
 	}
 
 	public TreeMap<Long, Double> computeCorrelation(long duration, Ticker ticker) {
-		System.out.println("computeCorrelation("+duration+", "+ticker.symbol);
 		ticker.computeRepresentativeMoments(duration);
-		System.out.println("done (ticker): "+ticker.representativeMoments.size()
-		+", "+ticker.representativeDeltas.size());
 		computeRepresentativeMoments(duration);
-		System.out.println("done (this): "+this.representativeMoments.size()
-		+", "+this.representativeDeltas.size());
 		TreeMap<Long, Double> correlation = new TreeMap<Long, Double>();
 		for(Entry<Long, Double> entry : this.representativeDeltas.entrySet()){
 			Entry<Long, Double> otherDelta = 
@@ -96,7 +91,6 @@ public class Ticker {
 			double c = computeCorrelation(entry, otherDelta);
 			correlation.put(entry.getKey(), c);
 		}
-		System.out.println("no really, I'm done");
 		return correlation;
 	}
 
@@ -231,13 +225,13 @@ public class Ticker {
 		}
 		int i=0;
 		for(i=0;i<maxBuys;++i){
-			try {writer.write(", buy_"+i);}
+			try {writer.write(", buy_"+i+", buy_"+i+" vol.");}
 			catch (IOException e) {die("dumpMoments: failed to write buy header "+filename,e);}
 		}
-		try {writer.write(", price");}
+		try {writer.write(", price, price vol.");}
 		catch (IOException e) {die("dumpMoments: failed to write price header "+filename,e);}
 		for(i=0;i<maxSells;++i){
-			try {writer.write(", sell_"+i);}
+			try {writer.write(", sell_"+i+", sell_"+i+" vol.");}
 			catch (IOException e) {die("dumpMoments: failed to write sell header "+filename,e);}
 		}
 		try {writer.write("\n");}
@@ -250,24 +244,31 @@ public class Ticker {
 				for(Entry<Long, Integer> buyEntry : entry.getValue().buys.entrySet()){
 					try {writer.write(", "+((double)buyEntry.getKey())/10000d);}
 					catch (IOException e) {die("dumpMoments: failed to write buy value "+filename,e);}
+					try {writer.write(", "+buyEntry.getValue());}
+					catch (IOException e) {die("dumpMoments: failed to write buy volume "+filename,e);}
 					++i;
 				}
 			}
 			for(;i<maxBuys;++i){
-				try {writer.write(", ");}
+				try {writer.write(", , ");}
 				catch (IOException e) {die("dumpMoments: failed to write a comma "+filename,e);}
 			}
-			try {writer.write(", ");}
-			catch (IOException e) {die("dumpMoments: failed to write a comma "+filename,e);}
 			if(entry.getValue().price>0){
-				try {writer.write(""+((double)entry.getValue().price)/10000d);}
+				try {writer.write(", "+((double)entry.getValue().price)/10000d);}
 				catch (IOException e) {die("dumpMoments: failed to write price value "+filename,e);}
+				try {writer.write(", "+entry.getValue().size);}
+				catch (IOException e) {die("dumpMoments: failed to write price volume "+filename,e);}
+			} else {
+				try {writer.write(", , ");}
+				catch (IOException e) {die("dumpMoments: failed to write a comma "+filename,e);}				
 			}
 			i=0;
 			if(entry.getValue().sells!=null){
 				for(Entry<Long, Integer> sellEntry : entry.getValue().sells.entrySet()){
 					try {writer.write(", "+((double)sellEntry.getKey())/10000d);}
 					catch (IOException e) {die("dumpMoments: failed to write sell value "+filename,e);}
+					try {writer.write(", "+sellEntry.getValue());}
+					catch (IOException e) {die("dumpMoments: failed to write sell volume "+filename,e);}
 				}
 				++i;
 			}
