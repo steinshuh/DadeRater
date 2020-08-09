@@ -27,6 +27,10 @@ public class Ticker {
 		}
 		long price=0;
 		int size=0;
+		long bidPrice=0;
+		int bidSize=0;
+		long askPrice=0;
+		int askSize=0;
 		Map<Long,Integer> sells = new TreeMap<Long,Integer>();
 		Map<Long,Integer> buys = new TreeMap<Long,Integer>();
 	}
@@ -187,6 +191,14 @@ public class Ticker {
 	public void addSell(long time, long value, int volume) {
 		Moment moment = getMoment(time);
 		moment.sells.put(value,volume);
+	}
+	
+	public void addQuote(long time, long bidPrice, int bidSize, long askPrice, int askSize) {
+		Moment moment = getMoment(time);
+		moment.bidPrice=bidPrice;
+		moment.bidSize=bidSize;
+		moment.askPrice=askPrice;
+		moment.askSize=askSize;
 	}
 
 	public void addBuy(long time, long value, int volume) {

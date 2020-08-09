@@ -322,6 +322,7 @@ public class Main {
 		return true;
 	}
 
+	private static boolean _headerIsDeep = false;
 	public static boolean parse(String fname) {
 
 		Map<String,Integer> messageCounts = new TreeMap<String, Integer>();
@@ -343,55 +344,103 @@ public class Main {
 			//System.out.println(messageCount);
 			for(int i=0;i<messageCount;++i){
 				int messageSize=readShort(ins);
-				//we probably should check this
 				if(messageSize>0){
-					try {
-						aByte = ins.read();
-					} catch (IOException e) {
-						System.err.println("IO exception while reading: "+fname);
-						e.printStackTrace();
+					if(_headerIsDeep) {
 						try {
-							ins.close();
-						} catch (IOException ee) {
-							System.err.println("failed to close: "+fname);
-							ee.printStackTrace();
+							aByte = ins.read();
+						} catch (IOException e) {
+							System.err.println("IO exception while reading: "+fname);
+							e.printStackTrace();
+							try {
+								ins.close();
+							} catch (IOException ee) {
+								System.err.println("failed to close: "+fname);
+								ee.printStackTrace();
+							}
+							return false;
 						}
-						return false;
-					}
-					String ab = ""+(char)aByte;
-					if(messageCounts.containsKey(ab)) {
-						Integer x = messageCounts.get(ab);
-						messageCounts.put(ab, x.intValue()+1);
-					}else {
-						messageCounts.put(ab,  1);
-					}
-					switch(aByte) {
-					case 'S': if(!readAdministrativeMessage(ins, messageSize))fail();
-					break;
-					case 'D': if(!readSecurityDirectoryMessage(ins, messageSize))fail();
-					break;
-					case 'H': if(!readTradingStatusMessage(ins, messageSize))fail();
-					break;
-					case 'O': if(!readOperationalHaltStatusMessage(ins, messageSize))fail();
-					break;
-					case 'P': if(!readShortSalePriceTestStatusMessage(ins, messageSize))fail();
-					break;
-					case 'E': if(!readSecurityEventMessage(ins, messageSize))fail();
-					break;
-					case '8': if(!readBuyPriceLevelUpdateMessage(ins, messageSize))fail();
-					break;
-					case '5': if(!readSellPriceLevelUpdateMessage(ins, messageSize))fail();
-					break;
-					case 'T': if(!readTradeReportMessage(ins, messageSize))fail();
-					break;
-					case 'X': if(!readOfficialPriceMessage(ins, messageSize))fail();
-					break;
-					case 'B': if(!readTradeBreakMessage(ins, messageSize))fail();
-					break;
-					case 'A': if(!readAuctionInformationMessage(ins, messageSize))fail();
-					break;
-					default:
-						System.out.println("unknown message type (size["+messageSize+"]): "+displayChar(aByte)+" "+shortHex(aByte)+" "+aByte);
+						String ab = ""+(char)aByte;
+						if(messageCounts.containsKey(ab)) {
+							Integer x = messageCounts.get(ab);
+							messageCounts.put(ab, x.intValue()+1);
+						}else {
+							messageCounts.put(ab,  1);
+						}
+						switch(aByte) {
+						case 'S': if(!readDeepSystemEventMessage(ins, messageSize))fail();
+						break;
+						case 'D': if(!readDeepSecurityDirectoryMessage(ins, messageSize))fail();
+						break;
+						case 'H': if(!readDeepTradingStatusMessage(ins, messageSize))fail();
+						break;
+						case 'O': if(!readDeepOperationalHaltStatusMessage(ins, messageSize))fail();
+						break;
+						case 'P': if(!readDeepShortSalePriceTestStatusMessage(ins, messageSize))fail();
+						break;
+						case 'E': if(!readDeepSecurityEventMessage(ins, messageSize))fail();
+						break;
+						case '8': if(!readDeepBuyPriceLevelUpdateMessage(ins, messageSize))fail();
+						break;
+						case '5': if(!readDeepSellPriceLevelUpdateMessage(ins, messageSize))fail();
+						break;
+						case 'T': if(!readDeepTradeReportMessage(ins, messageSize))fail();
+						break;
+						case 'X': if(!readDeepOfficialPriceMessage(ins, messageSize))fail();
+						break;
+						case 'B': if(!readDeepTradeBreakMessage(ins, messageSize))fail();
+						break;
+						case 'A': if(!readDeepAuctionInformationMessage(ins, messageSize))fail();
+						break;
+						default:
+							System.out.println("unknown message type (size["+messageSize+"]): "+displayChar(aByte)+" "+shortHex(aByte)+" "+aByte);
+						}
+					} else {
+						//tops	
+						try {
+							aByte = ins.read();
+						} catch (IOException e) {
+							System.err.println("IO exception while reading: "+fname);
+							e.printStackTrace();
+							try {
+								ins.close();
+							} catch (IOException ee) {
+								System.err.println("failed to close: "+fname);
+								ee.printStackTrace();
+							}
+							return false;
+						}
+						String ab = ""+(char)aByte;
+						if(messageCounts.containsKey(ab)) {
+							Integer x = messageCounts.get(ab);
+							messageCounts.put(ab, x.intValue()+1);
+						}else {
+							messageCounts.put(ab,  1);
+						}
+						switch(aByte) {
+						case 'S': if(!readDeepSystemEventMessage(ins, messageSize))fail();
+						break;
+						case 'D': if(!readDeepSecurityDirectoryMessage(ins, messageSize))fail();
+						break;
+						case 'H': if(!readDeepTradingStatusMessage(ins, messageSize))fail();
+						break;
+						case 'O': if(!readDeepOperationalHaltStatusMessage(ins, messageSize))fail();
+						break;
+						case 'P': if(!readDeepShortSalePriceTestStatusMessage(ins, messageSize))fail();
+						break;
+						case 'Q': if(!readTopsQuoteUpdateMessage(ins, messageSize))fail();
+						break;
+						case 'T': if(!readDeepTradeReportMessage(ins, messageSize))fail();
+						break;
+						case 'X': if(!readDeepOfficialPriceMessage(ins, messageSize))fail();
+						break;
+						case 'B': if(!readDeepTradeBreakMessage(ins, messageSize))fail();
+						break;
+						case 'A': if(!readDeepAuctionInformationMessage(ins, messageSize))fail();
+						break;
+						default:
+							System.out.println("unknown message type (size["+messageSize+"]): "+displayChar(aByte)+" "+shortHex(aByte)+" "+aByte);
+						}
+
 					}
 					++count;
 				}
@@ -552,7 +601,7 @@ public class Main {
 		return 0;
 	}
 
-	public static boolean readAdministrativeMessage(InputStream s, int messageSize) {
+	public static boolean readDeepSystemEventMessage(InputStream s, int messageSize) {
 		int computedMessageSize =1;
 		int systemEvent = readByte(s);
 		++computedMessageSize;
@@ -573,7 +622,7 @@ public class Main {
 		return false;
 	}
 
-	public static boolean readSecurityDirectoryMessage(InputStream s, int messageSize) {
+	public static boolean readDeepSecurityDirectoryMessage(InputStream s, int messageSize) {
 		int computedMessageSize =1;
 		int flags=readByte(s);
 		++computedMessageSize;
@@ -597,7 +646,7 @@ public class Main {
 		return true;
 	}
 
-	public static boolean readTradingStatusMessage(InputStream s, int messageSize) {
+	public static boolean readDeepTradingStatusMessage(InputStream s, int messageSize) {
 		int computedMessageSize=1;
 		int tradingStatus = readByte(s);
 		++computedMessageSize;
@@ -615,7 +664,7 @@ public class Main {
 		return true;
 	}
 
-	public static boolean readOperationalHaltStatusMessage(InputStream s, int messageSize) {
+	public static boolean readDeepOperationalHaltStatusMessage(InputStream s, int messageSize) {
 		int computedMessageSize=1;
 		int operationalHaltStatus = readByte(s);
 		++computedMessageSize;
@@ -630,7 +679,7 @@ public class Main {
 		return true;
 	}
 
-	public static boolean readShortSalePriceTestStatusMessage(InputStream s, int messageSize) {
+	public static boolean readDeepShortSalePriceTestStatusMessage(InputStream s, int messageSize) {
 		int computedMessageSize=1;
 		int shortSalePriceTestStatus = readByte(s);
 		++computedMessageSize;
@@ -648,7 +697,7 @@ public class Main {
 		return true;
 	}
 
-	public static boolean readSecurityEventMessage(InputStream s, int messageSize) {
+	public static boolean readDeepSecurityEventMessage(InputStream s, int messageSize) {
 		int computedMessageSize = 1;
 		int securityEvent = readByte(s);
 		++computedMessageSize;
@@ -663,7 +712,38 @@ public class Main {
 		return true;
 	}
 
-	public static boolean readBuyPriceLevelUpdateMessage(InputStream s, int messageSize) {
+	public static boolean readTopsQuoteUpdateMessage(InputStream s, int messageSize) {
+		int computedMessageSize=1;
+		int flags = readByte(s);
+		++computedMessageSize;
+		if(flags<0)fail();
+		long t = readTimeStamp(s);
+		computedMessageSize+=8;
+		if(t<0)fail();
+		String symbol = readString(s,8);
+		computedMessageSize+=8;
+		if(null==symbol)fail();
+		int bidSize = readInt(s);
+		computedMessageSize+=4;
+		if(bidSize<0)fail();
+		long bidPrice = readPrice(s);
+		computedMessageSize+=8;
+		if(bidPrice<0)fail();
+		int askSize = readInt(s);
+		computedMessageSize+=4;
+		if(askSize<0)fail();
+		long askPrice = readPrice(s);
+		computedMessageSize+=8;
+		if(askPrice<0)fail();
+		if(computedMessageSize!=messageSize)fail();
+		Ticker ticker = getTicker(symbol);
+		if(ticker!=null){
+			ticker.addQuote(t, bidPrice, bidSize, askPrice, askSize);
+		}
+		return true;
+	}
+
+	public static boolean readDeepBuyPriceLevelUpdateMessage(InputStream s, int messageSize) {
 		int computedMessageSize=1;
 		int eventFlags = readByte(s);
 		++computedMessageSize;
@@ -688,7 +768,7 @@ public class Main {
 		return true;
 	}
 
-	public static boolean readSellPriceLevelUpdateMessage(InputStream s, int messageSize) {
+	public static boolean readDeepSellPriceLevelUpdateMessage(InputStream s, int messageSize) {
 		int computedMessageSize=1;
 		int eventFlags = readByte(s);
 		++computedMessageSize;
@@ -713,7 +793,7 @@ public class Main {
 		return true;
 	}
 
-	public static boolean readTradeReportMessage(InputStream s, int messageSize) {
+	public static boolean readDeepTradeReportMessage(InputStream s, int messageSize) {
 		int computedMessageSize=1;
 		int saleConditionFlags = readByte(s);
 		++computedMessageSize;
@@ -741,7 +821,7 @@ public class Main {
 		return true;
 	}
 
-	public static boolean readOfficialPriceMessage(InputStream s, int messageSize) {
+	public static boolean readDeepOfficialPriceMessage(InputStream s, int messageSize) {
 		int computedMessageSize=1;
 		int priceType = readByte(s);
 		++computedMessageSize;
@@ -763,7 +843,7 @@ public class Main {
 		return true;
 	}
 
-	public static boolean readTradeBreakMessage(InputStream s, int messageSize) {
+	public static boolean readDeepTradeBreakMessage(InputStream s, int messageSize) {
 		int computedMessageSize=1;
 		int saleConditionFlags = readByte(s);
 		++computedMessageSize;
@@ -787,7 +867,7 @@ public class Main {
 		return true;
 	}
 
-	public static boolean readAuctionInformationMessage(InputStream s, int messageSize) {
+	public static boolean readDeepAuctionInformationMessage(InputStream s, int messageSize) {
 		int computedMessageSize = 1;
 		int auctionType = readByte(s);
 		++computedMessageSize;
@@ -837,13 +917,22 @@ public class Main {
 
 	public static int readHeader(InputStream s){
 		int matchIndex=0;
-		int[] header = {1,0,4,0x80};
+		int[] deepHeader = {1,0,4,0x80};
+		int[] topsHeader = {1,0,3,0x80};
 		int rb=0;
+		boolean readingTops=true;
+		boolean readingDeep=true;
 		do {
 			rb = readByte(s);
-			if(rb==header[matchIndex]){
+			if((readingDeep && rb==deepHeader[matchIndex]) ||
+					(readingTops && rb==topsHeader[matchIndex])){
+				if(readingDeep && rb!=deepHeader[matchIndex])
+					readingDeep=false;
+				if(readingTops && rb!=topsHeader[matchIndex])
+					readingTops=false;
 				++matchIndex;
-				if(matchIndex>=header.length){
+				if((readingDeep && matchIndex>=deepHeader.length) ||
+						readingTops && matchIndex>=topsHeader.length){
 					//matched
 					rb=readInt(s);//channel id
 					if(rb<0)return rb;
@@ -860,22 +949,25 @@ public class Main {
 					if(firstSequenceNumber<0)return -1;
 					long t = readTimeStamp(s);
 					if(t<0)return -1;
+					_headerIsDeep=readingDeep;
 					return messageCount;
 				} 
 			} else {
 				matchIndex=0;
-				if(rb==header[matchIndex]){
+				readingTops=true;
+				readingDeep=true;
+				if(rb==topsHeader[matchIndex] || rb==deepHeader[matchIndex]){
 					++matchIndex;
 				}
 			}
 		}while(rb>=0);
 		return rb;
 	}
-	
+
 	public static double nsToExcelDays(long ns) {
 		return nanoSecondsToDays(ns)+25569;
 	}
-	
+
 	public static double nanoSecondsToDays(long nanoSeconds){
 		long milliSeconds=nanoSeconds/(1000000);
 		double seconds = (double)(milliSeconds)/1000d;
