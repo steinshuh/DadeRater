@@ -240,8 +240,12 @@ public class Ticker {
 			try {writer.write(", buy_"+i+", buy_"+i+" vol.");}
 			catch (IOException e) {die("dumpMoments: failed to write buy header "+filename,e);}
 		}
+		try {writer.write(", bid, bid vol.");}
+		catch (IOException e) {die("dumpMoments: failed to write bid header "+filename,e);}		
 		try {writer.write(", price, price vol.");}
 		catch (IOException e) {die("dumpMoments: failed to write price header "+filename,e);}
+		try {writer.write(", ask, ask vol.");}
+		catch (IOException e) {die("dumpMoments: failed to write ask header "+filename,e);}
 		for(i=0;i<maxSells;++i){
 			try {writer.write(", sell_"+i+", sell_"+i+" vol.");}
 			catch (IOException e) {die("dumpMoments: failed to write sell header "+filename,e);}
@@ -265,11 +269,29 @@ public class Ticker {
 				try {writer.write(", , ");}
 				catch (IOException e) {die("dumpMoments: failed to write a comma "+filename,e);}
 			}
+			if(entry.getValue().bidPrice>0){
+				try {writer.write(", "+((double)entry.getValue().bidPrice)/10000d);}
+				catch (IOException e) {die("dumpMoments: failed to write bid price "+filename,e);}
+				try {writer.write(", "+entry.getValue().bidSize);}
+				catch (IOException e) {die("dumpMoments: failed to write bid volume "+filename,e);}
+			} else {
+				try {writer.write(", , ");}
+				catch (IOException e) {die("dumpMoments: failed to write a comma "+filename,e);}				
+			}
 			if(entry.getValue().price>0){
 				try {writer.write(", "+((double)entry.getValue().price)/10000d);}
 				catch (IOException e) {die("dumpMoments: failed to write price value "+filename,e);}
 				try {writer.write(", "+entry.getValue().size);}
 				catch (IOException e) {die("dumpMoments: failed to write price volume "+filename,e);}
+			} else {
+				try {writer.write(", , ");}
+				catch (IOException e) {die("dumpMoments: failed to write a comma "+filename,e);}				
+			}
+			if(entry.getValue().askPrice>0){
+				try {writer.write(", "+((double)entry.getValue().askPrice)/10000d);}
+				catch (IOException e) {die("dumpMoments: failed to write ask price "+filename,e);}
+				try {writer.write(", "+entry.getValue().askSize);}
+				catch (IOException e) {die("dumpMoments: failed to write ask volume "+filename,e);}
 			} else {
 				try {writer.write(", , ");}
 				catch (IOException e) {die("dumpMoments: failed to write a comma "+filename,e);}				

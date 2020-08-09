@@ -58,8 +58,7 @@ public class Main {
 		//invocation config: 
 		// args: -f ./data/20200716_IEXTP1_DEEP1.0.pcap
 		//       -f ./data/20180127_IEXTP1_DEEP1.0.pcap
-		//       -f ./data/20200716_IEXTP1_DEEP1.0.pcap -x MSFT -x GOOGL -x AAPL -c AAPL MSFT -c AAPL GOOGL -c MSFT AAPL -c MSFT GOOGL -c GOOGL AAPL -c GOOGL MSFT -df AAPL aapl.csv -df MSFT msft.csv -df GOOGL googl.csv
-		// VM args: -Xms12g -Xmx12g
+		//       -f ./data/20200716_IEXTP1_DEEP1.0.pcap -f ./data/20200716_IEXTP1_TOPS1.6.pcap -x MSFT -x GOOGL -x AAPL -c AAPL GOOGL -c AAPL MSFT -c GOOGL AAPL -c GOOGL MSFT -c MSFT AAPL -c MSFT GOOGL -df AAPL aapl.csv -df GOOGL googl.csv -df MSFT msft.csv		// VM args: -Xms12g -Xmx12g
 		// takes about a minute to run
 		String inv = "["+invocation.length+"]";
 		for(int i=0;i<invocation.length;++i) {
@@ -81,7 +80,7 @@ public class Main {
 		boolean needToHexDump = false;
 		boolean needToTestGui = false;
 		boolean needToDumpFile = false;
-		String fileToIngest = null;
+		TreeSet<String> filesToIngest = new TreeSet<String>();
 		String fileToHexDump = null;
 		int argsI = 0;
 		while(argsI < args.length){
@@ -118,8 +117,8 @@ public class Main {
 				++argsI;
 				if(argsI < args.length){
 					needToIngestFile = true;
-					fileToIngest = args[argsI];
-					System.out.println("\t"+fileToIngest);
+					filesToIngest.add(args[argsI]);
+					System.out.println("\t"+args[argsI]);
 					++argsI;
 				} else {
 					needToPrintUsage = true;					
@@ -179,9 +178,14 @@ public class Main {
 			}
 		}
 		if(needToIngestFile){
-			if(!parse(fileToIngest)) {
-				System.err.println("failed to parse "+args[1]);
-				System.exit(-1);
+			for(String fileToIngest : filesToIngest) {
+				System.out.print("parsing "+fileToIngest);
+				System.out.flush();
+				if(!parse(fileToIngest)) {
+					System.err.println("failed to parse "+args[1]);
+					System.exit(-1);
+				}
+				System.out.println(" ok");
 			}
 			JFrame frame = new JFrame();
 			frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -729,12 +733,12 @@ public class Main {
 		long bidPrice = readPrice(s);
 		computedMessageSize+=8;
 		if(bidPrice<0)fail();
-		int askSize = readInt(s);
-		computedMessageSize+=4;
-		if(askSize<0)fail();
 		long askPrice = readPrice(s);
 		computedMessageSize+=8;
 		if(askPrice<0)fail();
+		int askSize = readInt(s);
+		computedMessageSize+=4;
+		if(askSize<0)fail();
 		if(computedMessageSize!=messageSize)fail();
 		Ticker ticker = getTicker(symbol);
 		if(ticker!=null){
