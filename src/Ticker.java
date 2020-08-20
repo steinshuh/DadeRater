@@ -55,28 +55,65 @@ public class Ticker {
 		moments.put(time, moment);
 		return moment;
 	}
-	
+
 	public void computeDFT(){
 		if(moments.isEmpty())return;
+		double[] prices = computePriceVector();
+		DoubleFFT_1D fft = new DoubleFFT_1D(prices.length);//one bin per second
+		fft.realForward(prices);
+	}
+
+	public double[] computePriceVector(){
+		if(moments.isEmpty())return null;
 		Entry<Long, Moment> startMomentEntry = moments.firstEntry();
 		Entry<Long, Moment> lastMomentEntry = moments.lastEntry();
 		long totalDuration = lastMomentEntry.getKey() - startMomentEntry.getKey();
 		//total duration is in nanoseconds
 		final long billion = 1000000000L;
 		int totalDurationSeconds = (int)(totalDuration / billion);
-		DoubleFFT_1D fft = new DoubleFFT_1D(totalDurationSeconds);//one bin per second
-		double momentPriceSeconds[] = new double[totalDurationSeconds];
+		if(totalDurationSeconds%2==1)++totalDurationSeconds;
+		//made even and doubled so we can use this for FFTs
+		double prices[] = new double[2*totalDurationSeconds];//initialized to 0
 		int previousIndex = 0;
 		long startT = startMomentEntry.getKey();
-		for(Entry<Long, Moment> moment : moments.entrySet()){
-			long t = moment.getKey();
+		int currentVolume = 0;
+		double currentSummedPrice = 0;
+		for(Entry<Long, Moment> momentEntry : moments.entrySet()){
+			long t = momentEntry.getKey();
+			Moment m = momentEntry.getValue();
 			int index = (int)((t - startT)/billion);
-			if(index > previousIndex){
-				//start over and fill, if necessary
+			if(m.size > 0 && m.price > 0){
+				if(index > previousIndex){
+					//fill in the accumulated price for the previous bin
+					prices[previousIndex]=currentSummedPrice/currentVolume;
+					//fill gaps if necessary (linear interpolation for now)
+					double gap = index - previousIndex;
+					for(double i = 1; i<gap; ++i){
+						prices[previousIndex+(int)i]=
+								((gap-i)/gap)*prices[previousIndex]
+										+ (i/gap)*m.price;
+					}
+					//start over and update price
+					currentVolume = m.size;
+					currentSummedPrice = currentVolume * 
+							(double)(m.price);
+				}else{
+					//increment this bin
+					currentVolume += momentEntry.getValue().size;
+					currentSummedPrice = momentEntry.getValue().size * 
+							(double)(momentEntry.getValue().price);
+				}
 			}
 		}
+		//fill in the accumulated price for the final used bin
+		prices[previousIndex]=currentSummedPrice/currentVolume;
+		//extend to the end of the prices vector
+		for(int i=previousIndex+1;i<prices.length;++i){
+			prices[i]=prices[previousIndex];
+		}
+		return prices;
 	}
-
+	
 	public static double computeCorrelation(
 			Entry<Long, Double> delta, 
 			Entry<Long, Double> otherDelta) {
@@ -214,7 +251,7 @@ public class Ticker {
 		Moment moment = getMoment(time);
 		moment.sells.put(value,volume);
 	}
-	
+
 	public void addQuote(long time, long bidPrice, int bidSize, long askPrice, int askSize) {
 		Moment moment = getMoment(time);
 		moment.bidPrice=bidPrice;
