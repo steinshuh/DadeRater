@@ -12,6 +12,7 @@ import org.jfree.data.time.Second;
 import org.jfree.data.time.TimeSeries;
 import org.jfree.data.time.TimeSeriesCollection;
 import org.jfree.data.xy.XYDataset;
+import org.jtransforms.fft.DoubleFFT_1D;
 
 public class Ticker {
 
@@ -53,6 +54,27 @@ public class Ticker {
 		Moment moment = new Moment();
 		moments.put(time, moment);
 		return moment;
+	}
+	
+	public void computeDFT(){
+		if(moments.isEmpty())return;
+		Entry<Long, Moment> startMomentEntry = moments.firstEntry();
+		Entry<Long, Moment> lastMomentEntry = moments.lastEntry();
+		long totalDuration = lastMomentEntry.getKey() - startMomentEntry.getKey();
+		//total duration is in nanoseconds
+		final long billion = 1000000000L;
+		int totalDurationSeconds = (int)(totalDuration / billion);
+		DoubleFFT_1D fft = new DoubleFFT_1D(totalDurationSeconds);//one bin per second
+		double momentPriceSeconds[] = new double[totalDurationSeconds];
+		int previousIndex = 0;
+		long startT = startMomentEntry.getKey();
+		for(Entry<Long, Moment> moment : moments.entrySet()){
+			long t = moment.getKey();
+			int index = (int)((t - startT)/billion);
+			if(index > previousIndex){
+				//start over and fill, if necessary
+			}
+		}
 	}
 
 	public static double computeCorrelation(
