@@ -5,6 +5,11 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
 
+import javax.swing.BoxLayout;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.JFreeChart;
 import org.jfree.data.general.SeriesException;
@@ -56,11 +61,46 @@ public class Ticker {
 		return moment;
 	}
 
+	public static void showDoublePanel(String title, double[] values, long startTime, int step){
+		JFrame frame = new JFrame();
+		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		JPanel panel = new JPanel();
+		panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+		frame.add(panel);
+
+		TimeSeries timeSeries = new TimeSeries(title);
+		final long billion = 1000000000;
+		for(int i=0;i<values.length;i+=step) {
+			Date t = Main.timeStampToDate(startTime + (i*billion));
+			try {
+				timeSeries.addOrUpdate(new Second(t), values[i]);
+			} catch(SeriesException e) {
+				System.err.println("Error adding to timeSeries: "+e);
+				Main.fail();
+			}
+		}
+		TimeSeriesCollection timeSeriesCollection = new TimeSeriesCollection(timeSeries);
+		JFreeChart chart = ChartFactory.createTimeSeriesChart(title, "time", "price", timeSeriesCollection, true, true, false);
+		ZoomSyncedChartPanel chartPanel = new ZoomSyncedChartPanel(chart);
+		chartPanel.setPreferredSize(new java.awt.Dimension(500,350));
+		chartPanel.setMouseZoomable(true,false);
+		panel.add(chartPanel);
+
+		JScrollPane scrollPane = new JScrollPane(panel);
+		frame.setContentPane(scrollPane);
+		frame.pack();
+		frame.setVisible(true);
+
+	}
+
 	public void computeDFT(){
 		if(moments.isEmpty())return;
 		double[] prices = computePriceVector();
+		showDoublePanel(symbol+" price", prices, moments.firstKey(), 1);
 		DoubleFFT_1D fft = new DoubleFFT_1D(prices.length);//one bin per second
 		fft.realForward(prices);
+
+		showDoublePanel(symbol+" DFT", prices, moments.firstKey(),2);
 	}
 
 	public double[] computePriceVector(){
@@ -78,14 +118,16 @@ public class Ticker {
 		long startT = startMomentEntry.getKey();
 		int currentVolume = 0;
 		double currentSummedPrice = 0;
+		int transitions=0;
 		for(Entry<Long, Moment> momentEntry : moments.entrySet()){
 			long t = momentEntry.getKey();
 			Moment m = momentEntry.getValue();
 			int index = (int)((t - startT)/billion);
 			if(m.size > 0 && m.price > 0){
 				if(index > previousIndex){
+					++transitions;
 					//fill in the accumulated price for the previous bin
-					prices[previousIndex]=currentSummedPrice/currentVolume;
+					prices[previousIndex]=currentSummedPrice/(double)currentVolume;
 					//fill gaps if necessary (linear interpolation for now)
 					double gap = index - previousIndex;
 					for(double i = 1; i<gap; ++i){
@@ -97,14 +139,16 @@ public class Ticker {
 					currentVolume = m.size;
 					currentSummedPrice = currentVolume * 
 							(double)(m.price);
+					previousIndex=index;
 				}else{
 					//increment this bin
-					currentVolume += momentEntry.getValue().size;
-					currentSummedPrice = momentEntry.getValue().size * 
-							(double)(momentEntry.getValue().price);
+					currentVolume += m.size;
+					currentSummedPrice += (double)(m.size) * 
+							(double)(m.price);
 				}
 			}
 		}
+		System.out.println(symbol+" transitions "+transitions);
 		//fill in the accumulated price for the final used bin
 		prices[previousIndex]=currentSummedPrice/currentVolume;
 		//extend to the end of the prices vector
@@ -113,7 +157,7 @@ public class Ticker {
 		}
 		return prices;
 	}
-	
+
 	public static double computeCorrelation(
 			Entry<Long, Double> delta, 
 			Entry<Long, Double> otherDelta) {
