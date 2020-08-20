@@ -281,6 +281,12 @@ public class Main {
 				}
 			}
 		}
+		System.out.println("testing dft");
+		for(Entry<String,Ticker> entry : tickers.entrySet()){
+			System.out.println("  testing dft on "+entry.getKey());
+			entry.getValue().computeDFT();
+			System.out.println("  done");
+		}
 		System.out.println("ok");
 	}
 
