@@ -98,9 +98,9 @@ public class Ticker {
 		double[] prices = computePriceVector();
 		showDoublePanel(symbol+" price", prices, moments.firstKey(), 1);
 		DoubleFFT_1D fft = new DoubleFFT_1D(prices.length);//one bin per second
-		fft.realForward(prices);
+		fft.realForwardFull(prices);
 
-		showDoublePanel(symbol+" DFT", prices, moments.firstKey(),2);
+		showDoublePanel(symbol+" DFT", prices, moments.firstKey(), 1);
 	}
 
 	public double[] computePriceVector(){
@@ -152,7 +152,7 @@ public class Ticker {
 		//fill in the accumulated price for the final used bin
 		prices[previousIndex]=currentSummedPrice/currentVolume;
 		//extend to the end of the prices vector
-		for(int i=previousIndex+1;i<prices.length;++i){
+		for(int i=previousIndex+1;i<totalDurationSeconds;++i){
 			prices[i]=prices[previousIndex];
 		}
 		return prices;
