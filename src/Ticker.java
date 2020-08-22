@@ -119,8 +119,8 @@ public class Ticker {
 		for(int i=0;i<Q.length;++i) Q[i]=normalizedPrices[i];
 		
 		
-		double[] QT = MASS.slidingDotProduct(Q, normalizedPrices);
-		showDoublePanel(symbol+" sliding dot product", QT, priceVector.t, 1);
+		double[] D = MASS.mass(Q, normalizedPrices);
+		showDoublePanel(symbol+" D", D, priceVector.t, 1);
 		
 	}
 

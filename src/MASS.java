@@ -113,19 +113,30 @@ public class MASS {
 		return QT;
 	}
 	
-	class SeriesStatistics {
-		double[] Q = null;
-		double[] T = null;
-		double muQ = 0;
-		double sigmaQ = 0;
-		double[] muT = null;
-		double[] sigmaT = null;
+	static boolean checkForNan(double[] v){
+		for(int i=0;i<v.length;++i){
+			if(Double.isNaN(v[i]))return false;
+		}
+		return true;
 	}
 	
 	static double[] mass(double[] Q, double[] T)
 	{
 		double[] QT = slidingDotProduct(Q,T);
-		return null;
+		SeriesStatistics stats = new SeriesStatistics(Q,T);
+		double[] D = new double[stats.muT.length];
+		double m = Q.length;
+		for(int i=0;i<D.length;++i){
+			double x = 2*m*(1-((QT[i]-m*stats.muQ*stats.muT[i])/(m*stats.sigmaQ*stats.sigmaT[i])));
+			if(x<0)
+				D[i]=0;
+			else if(Double.isFinite(x))
+				D[i]=Math.sqrt(x);
+			else
+				D[i]=1;
+		}
+		if(!checkForNan(D))System.out.println("D has NaNs");
+		return D;
 	}
 	
 	
