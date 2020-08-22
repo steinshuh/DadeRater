@@ -71,7 +71,7 @@ public class MASS {
 		for(int i=0;i<n;i+=2)
 		{
 			//complex multiplication
-			out[i]=(a[i]*b[i]) + (a[i+1]*b[i+1]);
+			out[i]=(a[i]*b[i]) - (a[i+1]*b[i+1]);
 			out[i+1]=(a[i]*b[i+1]) + (a[i+1]*b[i]);
 		}
 		return out;
@@ -101,6 +101,7 @@ public class MASS {
 	{
 		if(Q==null)return null;
 		if(T==null)return null;	
+		if(Q.length>T.length)return null;
 		int n = T.length;
 		int m = Q.length;
 		double[] Ta = extend(T, n);
@@ -110,6 +111,15 @@ public class MASS {
 		double[] Taf = FFT(Ta);
 		double[] QT = inverseFFT(elementwiseComplexMultiplication(Qraf, Taf));
 		return QT;
+	}
+	
+	class SeriesStatistics {
+		double[] Q = null;
+		double[] T = null;
+		double muQ = 0;
+		double sigmaQ = 0;
+		double[] muT = null;
+		double[] sigmaT = null;
 	}
 	
 	static double[] mass(double[] Q, double[] T)

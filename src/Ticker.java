@@ -111,31 +111,32 @@ public class Ticker {
 
 	public void computeDFT(){
 		if(moments.isEmpty())return;
-		double[] prices = computePriceVector();
+		PriceVector priceVector = computePriceVector();
+		double[] prices = priceVector.v;
 		double[] normalizedPrices = normalize(prices);
-		double[] normalizedPricesFft = fftVector(normalizedPrices);
-		DoubleFFT_1D fft = new DoubleFFT_1D(normalizedPricesFft.length);//one bin per second
-		fft.realForward(normalizedPricesFft);
-
-		showDoublePanel(symbol+" DFT", normalizedPricesFft, moments.firstKey(), 1);
+		showDoublePanel(symbol+" prices", normalizedPrices, priceVector.t, 1);
+		double[] Q = new double[256];
+		for(int i=0;i<Q.length;++i) Q[i]=normalizedPrices[i];
 		
-		fft.realInverse(normalizedPricesFft, true);
-		showDoublePanel(symbol+" iDFT", normalizedPricesFft, moments.firstKey(), 1);
+		
+		double[] QT = MASS.slidingDotProduct(Q, normalizedPrices);
+		showDoublePanel(symbol+" sliding dot product", QT, priceVector.t, 1);
 		
 	}
 
 	public void computeAltDFT(){
 		if(moments.isEmpty())return;
-		double[] prices = computePriceVector();
+		PriceVector priceVector = computePriceVector();
+		double[] prices = priceVector.v;
 		spoutStats("prices",prices);
 		//double[] normalizePrices = normalize(computePriceVector());
 		//spoutStats("normalizePrices",normalizePrices);
-		showDoublePanel(symbol+" price", prices, moments.firstKey(), 1);
+		showDoublePanel(symbol+" price", prices, priceVector.t, 1);
 		FFTbase fft = new FFTbase();
 		boolean ok= fft.adjustedFft(prices, null,
 				true);
 		if(!ok)System.out.println("fft computation failed for "+symbol);
-		showDoublePanel(symbol+" DFT", fft.xReal, moments.firstKey(), 1);
+		showDoublePanel(symbol+" DFT", fft.xReal, priceVector.t, 1);
 
 	}
 
@@ -179,7 +180,16 @@ public class Ticker {
 		return out;
 	}
 
-	public double[] computePriceVector(){
+	public class PriceVector {
+		public double[] v=null;
+		public long t=0L;
+		public PriceVector(long t, double[] v){
+			this.t=t;
+			this.v=v;
+		}
+	}
+	
+	public PriceVector computePriceVector(){
 		if(moments.isEmpty())return null;
 		Long st = 0L;
 		Long et = 0L;
@@ -245,7 +255,7 @@ public class Ticker {
 		for(int i=previousIndex+1;i<totalDurationSeconds;++i){
 			prices[i]=prices[previousIndex];
 		}
-		return prices;
+		return new PriceVector(st,prices);
 	}
 
 	public static double computeCorrelation(
