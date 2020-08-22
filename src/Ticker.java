@@ -112,13 +112,16 @@ public class Ticker {
 	public void computeDFT(){
 		if(moments.isEmpty())return;
 		double[] prices = computePriceVector();
-		showDoublePanel(symbol+" price", prices, moments.firstKey(), 1);
 		double[] normalizedPrices = normalize(prices);
-		showDoublePanel(symbol+" normalizedPrice", normalizedPrices, moments.firstKey(), 1);
-		DoubleFFT_1D fft = new DoubleFFT_1D(normalizedPrices.length);//one bin per second
-		fft.realForward(normalizedPrices);
+		double[] normalizedPricesFft = fftVector(normalizedPrices);
+		DoubleFFT_1D fft = new DoubleFFT_1D(normalizedPricesFft.length);//one bin per second
+		fft.realForward(normalizedPricesFft);
 
-		showDoublePanel(symbol+" DFT", normalizedPrices, moments.firstKey(), 1);
+		showDoublePanel(symbol+" DFT", normalizedPricesFft, moments.firstKey(), 1);
+		
+		fft.realInverse(normalizedPricesFft, true);
+		showDoublePanel(symbol+" iDFT", normalizedPricesFft, moments.firstKey(), 1);
+		
 	}
 
 	public void computeAltDFT(){
@@ -134,6 +137,16 @@ public class Ticker {
 		if(!ok)System.out.println("fft computation failed for "+symbol);
 		showDoublePanel(symbol+" DFT", fft.xReal, moments.firstKey(), 1);
 
+	}
+
+	public static double[] fftVector(double[] v)
+	{
+		if(v==null)return null;
+		double[] out = new double[2*v.length];
+		for(int i=0;i<v.length;++i){
+			out[i]=v[i];
+		}
+		return out;	
 	}
 
 	public static double[] normalize(double[] v)
