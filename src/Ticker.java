@@ -93,64 +93,141 @@ public class Ticker {
 
 	}
 
+	public void spoutStats(String msg, double[] v){
+		if(v==null)
+		{
+			System.out.println(symbol+" "+msg+" <null>.");
+			return;
+		}
+		double minV = v[0];
+		double maxV = v[0];
+		for(int i=1;i<v.length;++i){
+			if(v[i]>maxV)maxV=v[i];
+			else if(v[i]<minV)minV=v[i];
+		}
+		double d = maxV-minV;
+		System.out.println(symbol+" "+msg+" max:"+maxV+", min:"+minV+", d:"+d+", n:"+v.length);
+	}
+
 	public void computeDFT(){
 		if(moments.isEmpty())return;
 		double[] prices = computePriceVector();
 		showDoublePanel(symbol+" price", prices, moments.firstKey(), 1);
-		DoubleFFT_1D fft = new DoubleFFT_1D(prices.length);//one bin per second
-		fft.realForwardFull(prices);
+		double[] normalizedPrices = normalize(prices);
+		showDoublePanel(symbol+" normalizedPrice", normalizedPrices, moments.firstKey(), 1);
+		DoubleFFT_1D fft = new DoubleFFT_1D(normalizedPrices.length);//one bin per second
+		fft.realForward(normalizedPrices);
 
-		showDoublePanel(symbol+" DFT", prices, moments.firstKey(), 1);
+		showDoublePanel(symbol+" DFT", normalizedPrices, moments.firstKey(), 1);
+	}
+
+	public void computeAltDFT(){
+		if(moments.isEmpty())return;
+		double[] prices = computePriceVector();
+		spoutStats("prices",prices);
+		//double[] normalizePrices = normalize(computePriceVector());
+		//spoutStats("normalizePrices",normalizePrices);
+		showDoublePanel(symbol+" price", prices, moments.firstKey(), 1);
+		FFTbase fft = new FFTbase();
+		boolean ok= fft.adjustedFft(prices, null,
+				true);
+		if(!ok)System.out.println("fft computation failed for "+symbol);
+		showDoublePanel(symbol+" DFT", fft.xReal, moments.firstKey(), 1);
+
+	}
+
+	public static double[] normalize(double[] v)
+	{
+		if(v==null)return null;
+		double minV = v[0];
+		double maxV = v[0];
+		for(int i=1;i<v.length;++i){
+			if(v[i]>maxV)maxV=v[i];
+			else if(v[i]<minV)minV=v[i];
+		}
+		double d = maxV-minV;
+		double[] out = new double[v.length];
+		for(int i=0;i<v.length;++i){
+			out[i]=(v[i]-minV)/d;
+		}
+		return out;	
+	}
+
+	public static double[] computeContainedInverse(double[] v)
+	{
+		if(v==null)return null;
+		double[] out = new double[v.length];
+		for(int i=0;i<v.length;++i){
+			if(v[i]>0)
+				out[i]=1/1+v[i];
+			else
+				out[i]=1/-1+v[i];
+		}
+		return out;
 	}
 
 	public double[] computePriceVector(){
 		if(moments.isEmpty())return null;
-		Entry<Long, Moment> startMomentEntry = moments.firstEntry();
-		Entry<Long, Moment> lastMomentEntry = moments.lastEntry();
-		long totalDuration = lastMomentEntry.getKey() - startMomentEntry.getKey();
+		Long st = 0L;
+		Long et = 0L;
+		for(Entry<Long, Moment> momentEntry : moments.entrySet()){
+			long t = momentEntry.getKey();
+			Moment m = momentEntry.getValue();
+			if(m.size>0){
+				if(st==0)st=t;
+				et=t;
+			}
+		}
+		long totalDuration = et - st;
 		//total duration is in nanoseconds
 		final long billion = 1000000000L;
 		int totalDurationSeconds = (int)(totalDuration / billion);
 		if(totalDurationSeconds%2==1)++totalDurationSeconds;
 		//made even and doubled so we can use this for FFTs
-		double prices[] = new double[2*totalDurationSeconds];//initialized to 0
+		double prices[] = new double[totalDurationSeconds];//initialized to 0
 		int previousIndex = 0;
-		long startT = startMomentEntry.getKey();
+		long startT = st;
 		int currentVolume = 0;
 		double currentSummedPrice = 0;
 		int transitions=0;
 		for(Entry<Long, Moment> momentEntry : moments.entrySet()){
 			long t = momentEntry.getKey();
-			Moment m = momentEntry.getValue();
-			int index = (int)((t - startT)/billion);
-			if(m.size > 0 && m.price > 0){
-				if(index > previousIndex){
-					++transitions;
-					//fill in the accumulated price for the previous bin
-					prices[previousIndex]=currentSummedPrice/(double)currentVolume;
-					//fill gaps if necessary (linear interpolation for now)
-					double gap = index - previousIndex;
-					for(double i = 1; i<gap; ++i){
-						prices[previousIndex+(int)i]=
-								((gap-i)/gap)*prices[previousIndex]
-										+ (i/gap)*m.price;
+			if(st<=t && t<et){
+				Moment m = momentEntry.getValue();
+				int index = (int)((t - startT)/billion);
+				if(m.size > 0 && m.price > 0){
+					if(index > previousIndex){
+						++transitions;
+						//fill in the accumulated price for the previous bin
+						if(currentVolume==0){
+							prices[previousIndex]=0;
+						} else {
+							prices[previousIndex]=currentSummedPrice/(double)currentVolume;
+						}
+						//fill gaps if necessary (linear interpolation for now)
+						double gap = index - previousIndex;
+						for(double i = 1; i<gap; ++i){
+							prices[previousIndex+(int)i]=
+									((gap-i)/gap)*prices[previousIndex]
+											+ (i/gap)*m.price;
+						}
+						//start over and update price
+						currentVolume = m.size;
+						currentSummedPrice = currentVolume * 
+								(double)(m.price);
+						previousIndex=index;
+					}else{
+						//increment this bin
+						currentVolume += m.size;
+						currentSummedPrice += (double)(m.size) * 
+								(double)(m.price);
 					}
-					//start over and update price
-					currentVolume = m.size;
-					currentSummedPrice = currentVolume * 
-							(double)(m.price);
-					previousIndex=index;
-				}else{
-					//increment this bin
-					currentVolume += m.size;
-					currentSummedPrice += (double)(m.size) * 
-							(double)(m.price);
 				}
 			}
 		}
 		System.out.println(symbol+" transitions "+transitions);
 		//fill in the accumulated price for the final used bin
-		prices[previousIndex]=currentSummedPrice/currentVolume;
+		prices[Math.min(totalDurationSeconds-1, previousIndex)]=currentSummedPrice/currentVolume;
 		//extend to the end of the prices vector
 		for(int i=previousIndex+1;i<totalDurationSeconds;++i){
 			prices[i]=prices[previousIndex];
