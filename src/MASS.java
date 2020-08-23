@@ -133,7 +133,7 @@ public class MASS {
 			else if(Double.isFinite(x))
 				D[i]=Math.sqrt(x);
 			else
-				D[i]=1;
+				D[i]=0.00001;
 		}
 		if(!checkForNan(D))System.out.println("D has NaNs");
 		return D;
