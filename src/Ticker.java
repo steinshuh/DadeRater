@@ -286,67 +286,88 @@ public class Ticker {
 			}
 		}
 	}
+	
+	public double[] computePriceVector(Long st, Long et){
+		long oneSecond = 1000000000L;
+		int len = 1+(int)((et-st)/oneSecond);
+		double[] rv = new double[len];
+		int i=0;
+		for(long t = st; t< et; t+=oneSecond) {
+			Entry<Long,Moment> entry = moments.ceilingEntry(t);
+			double sum = 0;
+			double count = 0;
+			while(null!=entry && entry.getKey()<t+oneSecond) {
+				int volume = Math.max(1, entry.getValue().size);
+				sum+=entry.getValue().price * volume;
+				count+=volume;
+				entry = moments.higherEntry(entry.getKey());
+			}
+			if(count==0)rv[i]=0;
+			else rv[i]=sum/count;
+			++i;
+		}
+		//extend over 0s;
+		//  skip leading zeros
+		i=0;
+		while(i<rv.length && rv[i]==0)++i;
+		if(i<rv.length){
+			//fill runs of zeros with the previous value
+			double previousValue = rv[i];
+			for(++i;i<rv.length;++i){
+				if(rv[i]==0){
+					rv[i]=previousValue;
+				} else {
+					previousValue=rv[i];
+				}
+			}
+		}
+		
+		return rv;
+	}
+	
+	boolean computePricePercentDeltaVector_displayed=false;
+	public double[] computePricePercentDeltaVector(Long st, Long et){
+		double[] rv = computePriceVector(st,et);
+		if(!computePricePercentDeltaVector_displayed){
+			Ticker.showDoublePanel(symbol+" pv", rv, st, 1); 			
+		}
+		for(int i=1;i<rv.length;++i){
+			if(rv[i-1]==0){
+				if(rv[i]!=0){
+					rv[i-1]=1;//100% increase
+				}//otherwise leave it at 0% increase
+			}else{
+				if(rv[i]==0){
+					rv[i-1]=-1;//100% decrease
+				} else {
+					rv[i-1]=(rv[i]-rv[i-1])/rv[i-1];
+				}
+			}
+		}
+		rv[rv.length-1]=0;
+		if(!computePricePercentDeltaVector_displayed){
+			computePricePercentDeltaVector_displayed=true;
+			Ticker.showDoublePanel(symbol+" deltas", rv, st, 1); 
+		}
+		return rv;
+	}
 
 	public TreeMap<Long, Double> computeCorrelation(int durationInSeconds, Ticker ticker) {
 		long oneSecond = 1000000000L;
 		long startingSecond = Math.min(this.moments.firstKey(), ticker.moments.firstKey());
 		long endingSecond = Math.max(this.moments.lastKey(), ticker.moments.lastKey());
-		int deltaPriceLength = 1+(int)((endingSecond-startingSecond)/oneSecond);
-		double[] deltaPrice = new double[deltaPriceLength];
-		int length=0;
-		double mxDelta = 0;
-		for(long t = startingSecond; t< endingSecond; t+=oneSecond) {
-			Entry<Long,Moment> thisEntry = moments.ceilingEntry(t);
-			double thisSum = 0;
-			double thisCount = 0;
-			while(null!=thisEntry && thisEntry.getKey()<t+oneSecond) {
-				int volume = Math.max(1, thisEntry.getValue().size);
-				thisSum+=thisEntry.getValue().price * volume;
-				thisCount+=volume;
-				thisEntry = moments.higherEntry(thisEntry.getKey());
-			}
-			Entry<Long,Moment> tickerEntry = ticker.moments.ceilingEntry(t);
-			double tickerSum = 0;
-			double tickerCount = 0;
-			while(null!=tickerEntry && tickerEntry.getKey()<t+oneSecond) {
-				int volume = Math.max(1, tickerEntry.getValue().size);
-				tickerSum+=tickerEntry.getValue().price * volume;
-				tickerCount+=volume;
-				tickerEntry = moments.higherEntry(tickerEntry.getKey());
-			}
-			if(thisCount==0) {
-				if(tickerCount==0) {
-					deltaPrice[length]=-1;
-				}else {
-					deltaPrice[length]=tickerSum/tickerCount;
-				}
-			} else {
-				if(tickerCount==0) {
-					deltaPrice[length]=thisSum/thisCount;
-				} else {
-					deltaPrice[length]=Math.abs(thisSum/thisCount - tickerSum/tickerCount);
-				}
-			}
-			if(deltaPrice[length]>mxDelta)mxDelta=deltaPrice[length];
-			++length;
+		double [] pdv = computePricePercentDeltaVector(startingSecond, endingSecond);
+		double [] tpdv = ticker.computePricePercentDeltaVector(startingSecond, endingSecond);
+		
+		double[] thisPricesFFT = MASS.FFT(MASS.extend(pdv, pdv.length));
+		double[] tickerPricesFFT = MASS.FFT(MASS.extend(tpdv, tpdv.length));
+		MASS.complexConjugateInPlace(tickerPricesFFT);
+		double[] fftProduct = MASS.elementwiseComplexMultiplication(thisPricesFFT, tickerPricesFFT);
+		double[] correl = MASS.inverseFFT(fftProduct);
+		TreeMap<Long,Double> correlation = new TreeMap<Long,Double>();
+		for(int i=0;i<pdv.length;++i){
+			correlation.put(oneSecond*(startingSecond+(long)i), correl[i]);
 		}
-		for(int i=0;i<deltaPrice.length;++i) {
-			if(deltaPrice[i]==-1)deltaPrice[i]=mxDelta;
-		}
-		double sumDeltaSquared = 0;
-		int j=0;
-		for(;j<durationInSeconds;++j) {
-			sumDeltaSquared+=deltaPrice[j]*deltaPrice[j];
-		}
-		TreeMap<Long,Double> correlation=new TreeMap<Long,Double>();
-		for(int i=0;i<length-durationInSeconds;++i) {
-			correlation.put(startingSecond+((long)i)*oneSecond, Math.sqrt(sumDeltaSquared));
-			sumDeltaSquared-=deltaPrice[i]*deltaPrice[i];
-			++j;
-			if(j<deltaPrice.length)
-				sumDeltaSquared+=deltaPrice[j]*deltaPrice[j];
-		}
-		System.out.println("x"+symbol+" "+length+" "+deltaPriceLength);
 		return correlation;
 	}
 
