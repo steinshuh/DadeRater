@@ -120,6 +120,20 @@ public class MASS {
 		return true;
 	}
 	
+	static double zNormalizedEuclideanDistance(double m, double qt, 
+			double muQ, double sigmaQ, 
+			double muT, double sigmaT)
+	{
+		double v= 2d*m*(1-((qt-(m*muQ*muT))/(m*sigmaQ*sigmaT)));
+		/*if(v<0 || !Double.isFinite(v)) {
+			Main.die("zNormalizedEuclideanDistance(m="+m+", qt="+qt+", \n" + 
+					"			muQ="+muQ+", sigmaQ="+sigmaQ+", \n" + 
+					"			muT="+muT+", sigmaT"+sigmaT+")="+v,
+					new Exception());
+		}*/
+		return Math.sqrt(Math.abs(v));
+	}
+	
 	static double[] mass(double[] Q, double[] T)
 	{
 		double[] QT = slidingDotProduct(Q,T);
@@ -127,7 +141,9 @@ public class MASS {
 		double[] D = new double[stats.muT.length];
 		double m = Q.length;
 		for(int i=0;i<D.length;++i){
-			double x = 2*m*(1-((QT[i]-m*stats.muQ*stats.muT[i])/(m*stats.sigmaQ*stats.sigmaT[i])));
+			double x = zNormalizedEuclideanDistance((double)m, QT[i],
+					stats.muQ,stats.sigmaQ,
+					stats.muT[i], stats.sigmaT[i]);
 			if(x<0)
 				D[i]=0;
 			else if(Double.isFinite(x))

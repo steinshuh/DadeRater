@@ -232,7 +232,7 @@ public class Main {
 				for(String symbol : entry.getValue()) {
 					Ticker ticker2 = getTicker(symbol);
 					String name = ticker.symbol+" vs "+ticker2.symbol;
-					TreeMap<Long, Double> comparison = ticker.computeCorrelation(100000000000l, ticker2);
+					TreeMap<Long, Double> comparison = ticker.computeCorrelation(256, ticker2);
 					TimeSeries series = new TimeSeries(name);
 					for(Entry<Long, Double> comparisonEntry : comparison.entrySet()) {
 						Date t = timeStampToDate(comparisonEntry.getKey());

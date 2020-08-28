@@ -17,7 +17,6 @@ import org.jfree.data.time.Second;
 import org.jfree.data.time.TimeSeries;
 import org.jfree.data.time.TimeSeriesCollection;
 import org.jfree.data.xy.XYDataset;
-import org.jtransforms.fft.DoubleFFT_1D;
 
 public class Ticker {
 
@@ -288,16 +287,66 @@ public class Ticker {
 		}
 	}
 
-	public TreeMap<Long, Double> computeCorrelation(long duration, Ticker ticker) {
-		ticker.computeRepresentativeMoments(duration);
-		computeRepresentativeMoments(duration);
-		TreeMap<Long, Double> correlation = new TreeMap<Long, Double>();
-		for(Entry<Long, Double> entry : this.representativeDeltas.entrySet()){
-			Entry<Long, Double> otherDelta = 
-					ticker.representativeDeltas.ceilingEntry(entry.getKey());
-			double c = computeCorrelation(entry, otherDelta);
-			correlation.put(entry.getKey(), c);
+	public TreeMap<Long, Double> computeCorrelation(int durationInSeconds, Ticker ticker) {
+		long oneSecond = 1000000000L;
+		long startingSecond = Math.min(this.moments.firstKey(), ticker.moments.firstKey());
+		long endingSecond = Math.max(this.moments.lastKey(), ticker.moments.lastKey());
+		int deltaPriceLength = 1+(int)((endingSecond-startingSecond)/oneSecond);
+		double[] deltaPrice = new double[deltaPriceLength];
+		int length=0;
+		double mxDelta = 0;
+		for(long t = startingSecond; t< endingSecond; t+=oneSecond) {
+			Entry<Long,Moment> thisEntry = moments.ceilingEntry(t);
+			double thisSum = 0;
+			double thisCount = 0;
+			while(null!=thisEntry && thisEntry.getKey()<t+oneSecond) {
+				int volume = Math.max(1, thisEntry.getValue().size);
+				thisSum+=thisEntry.getValue().price * volume;
+				thisCount+=volume;
+				thisEntry = moments.higherEntry(thisEntry.getKey());
+			}
+			Entry<Long,Moment> tickerEntry = ticker.moments.ceilingEntry(t);
+			double tickerSum = 0;
+			double tickerCount = 0;
+			while(null!=tickerEntry && tickerEntry.getKey()<t+oneSecond) {
+				int volume = Math.max(1, tickerEntry.getValue().size);
+				tickerSum+=tickerEntry.getValue().price * volume;
+				tickerCount+=volume;
+				tickerEntry = moments.higherEntry(tickerEntry.getKey());
+			}
+			if(thisCount==0) {
+				if(tickerCount==0) {
+					deltaPrice[length]=-1;
+				}else {
+					deltaPrice[length]=tickerSum/tickerCount;
+				}
+			} else {
+				if(tickerCount==0) {
+					deltaPrice[length]=thisSum/thisCount;
+				} else {
+					deltaPrice[length]=Math.abs(thisSum/thisCount - tickerSum/tickerCount);
+				}
+			}
+			if(deltaPrice[length]>mxDelta)mxDelta=deltaPrice[length];
+			++length;
 		}
+		for(int i=0;i<deltaPrice.length;++i) {
+			if(deltaPrice[i]==-1)deltaPrice[i]=mxDelta;
+		}
+		double sumDeltaSquared = 0;
+		int j=0;
+		for(;j<durationInSeconds;++j) {
+			sumDeltaSquared+=deltaPrice[j]*deltaPrice[j];
+		}
+		TreeMap<Long,Double> correlation=new TreeMap<Long,Double>();
+		for(int i=0;i<length-durationInSeconds;++i) {
+			correlation.put(startingSecond+((long)i)*oneSecond, Math.sqrt(sumDeltaSquared));
+			sumDeltaSquared-=deltaPrice[i]*deltaPrice[i];
+			++j;
+			if(j<deltaPrice.length)
+				sumDeltaSquared+=deltaPrice[j]*deltaPrice[j];
+		}
+		System.out.println("x"+symbol+" "+length+" "+deltaPriceLength);
 		return correlation;
 	}
 
