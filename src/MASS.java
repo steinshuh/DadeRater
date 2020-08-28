@@ -62,6 +62,13 @@ public class MASS {
 		return out;
 	}
 	
+	static void complexConjugateInPlace(double[] a)
+	{
+		for(int i=1;i<a.length;i+=2){
+			a[i]=-a[i];
+		}
+	}
+	
 	static double[] elementwiseComplexMultiplication(double[] a, double[] b)
 	{
 		if(a==null)return null;

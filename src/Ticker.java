@@ -350,6 +350,56 @@ public class Ticker {
 		return correlation;
 	}
 
+	public TreeMap<Long, Double> alt_computeCorrelation(int durationInSeconds, Ticker ticker) {
+		long oneSecond = 1000000000L;
+		long startingSecond = Math.min(this.moments.firstKey(), ticker.moments.firstKey());
+		long endingSecond = Math.max(this.moments.lastKey(), ticker.moments.lastKey());
+		int priceLength = 1+(int)((endingSecond-startingSecond)/oneSecond);
+		double thisPrices[] = new double[priceLength];
+		double tickerPrices[] = new double[priceLength];
+		int length=0;
+		for(long t = startingSecond; t< endingSecond; t+=oneSecond) {
+			Entry<Long,Moment> thisEntry = moments.ceilingEntry(t);
+			double thisSum = 0;
+			double thisCount = 0;
+			while(null!=thisEntry && thisEntry.getKey()<t+oneSecond) {
+				int volume = Math.max(1, thisEntry.getValue().size);
+				thisSum+=thisEntry.getValue().price * volume;
+				thisCount+=volume;
+				thisEntry = moments.higherEntry(thisEntry.getKey());
+			}
+			Entry<Long,Moment> tickerEntry = ticker.moments.ceilingEntry(t);
+			double tickerSum = 0;
+			double tickerCount = 0;
+			while(null!=tickerEntry && tickerEntry.getKey()<t+oneSecond) {
+				int volume = Math.max(1, tickerEntry.getValue().size);
+				tickerSum+=tickerEntry.getValue().price * volume;
+				tickerCount+=volume;
+				tickerEntry = moments.higherEntry(tickerEntry.getKey());
+			}
+			if(thisCount==0) {
+				thisPrices[length]=0;
+			} else{
+				thisPrices[length]=thisSum/thisCount;
+			}
+			if(tickerCount==0){
+				tickerPrices[length]=0;
+			} else {
+				tickerPrices[length]=tickerSum/tickerCount;
+			}
+			++length;
+		}
+		double[] thisPricesFFT = MASS.FFT(MASS.extend(thisPrices, thisPrices.length));
+		double[] tickerPricesFFT = MASS.FFT(MASS.extend(tickerPrices, tickerPrices.length));
+		MASS.complexConjugateInPlace(tickerPricesFFT);
+		double[] fftProduct = MASS.elementwiseComplexMultiplication(thisPricesFFT, tickerPricesFFT);
+		double[] correl = MASS.inverseFFT(fftProduct);
+		TreeMap<Long,Double> correlation = new TreeMap<Long,Double>();
+		for(int i=0;i<thisPrices.length;++i){
+			correlation.put(oneSecond*(startingSecond+(long)i), correl[i]);
+		}
+		return correlation;
+	}
 
 
 	public Moment getRepresentativeMoment(long time) {
