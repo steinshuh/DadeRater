@@ -287,6 +287,7 @@ public class Ticker {
 		}
 	}
 	
+	//between 0 and 1
 	public double[] computePriceVector(Long st, Long et){
 		long oneSecond = 1000000000L;
 		int len = 1+(int)((et-st)/oneSecond);
@@ -294,16 +295,21 @@ public class Ticker {
 		int i=0;
 		for(long t = st; t< et; t+=oneSecond) {
 			Entry<Long,Moment> entry = moments.ceilingEntry(t);
-			double sum = 0;
-			double count = 0;
+			//double sum = 0;
+			//double count = 0;
+			double price = 0;
 			while(null!=entry && entry.getKey()<t+oneSecond) {
-				int volume = Math.max(1, entry.getValue().size);
-				sum+=entry.getValue().price * volume;
-				count+=volume;
+				//int volume = Math.max(1, entry.getValue().size);
+				//sum+=entry.getValue().price * volume;
+				//count+=volume;
+				//++count;
+				//sum+=entry.getValue().price;
+				price = Math.max(price, entry.getValue().price);
 				entry = moments.higherEntry(entry.getKey());
 			}
-			if(count==0)rv[i]=0;
-			else rv[i]=sum/count;
+			//if(sum==0)rv[i]=0;
+			//else rv[i]=sum/count;
+			rv[i]=price;
 			++i;
 		}
 		//extend over 0s;
@@ -321,7 +327,6 @@ public class Ticker {
 				}
 			}
 		}
-		
 		return rv;
 	}
 	
@@ -332,15 +337,15 @@ public class Ticker {
 			Ticker.showDoublePanel(symbol+" pv", rv, st, 1); 			
 		}
 		for(int i=1;i<rv.length;++i){
-			if(rv[i-1]==0){
+			if(rv[i-1]==0) {
 				if(rv[i]!=0){
 					rv[i-1]=1;//100% increase
 				}//otherwise leave it at 0% increase
-			}else{
-				if(rv[i]==0){
+			} else {
+				if(rv[i]==0) {
 					rv[i-1]=-1;//100% decrease
 				} else {
-					rv[i-1]=(rv[i]-rv[i-1])/rv[i-1];
+					rv[i-1]=(rv[i]-rv[i-1])/(rv[i]+rv[i-1]);
 				}
 			}
 		}
