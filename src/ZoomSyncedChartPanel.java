@@ -6,7 +6,7 @@ import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
 
 
-public class ZoomSyncedChartPanel extends ChartPanel implements Comparable {
+public class ZoomSyncedChartPanel extends ChartPanel implements Comparable<ZoomSyncedChartPanel> {
 
 
 	private static final long serialVersionUID = 1L;
@@ -128,7 +128,7 @@ public class ZoomSyncedChartPanel extends ChartPanel implements Comparable {
 		}
 	}
 	
-	public int compareTo(Object arg) {
+	public int compareTo(ZoomSyncedChartPanel arg) {
 		if(arg == this)return 0;
 		return Integer.compare(hashCode(), arg.hashCode());
 	}
