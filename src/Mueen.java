@@ -21,9 +21,31 @@ public class Mueen {
 		final int m = 20;
 		double[] x = new double[n];
 		double[] y = new double[m];
+		int runCount = 0;
+		final double randFraction = 5;
 		for ( int i = 0 ; i < n ; ++i )
 		{
-			double d = Math.random();
+			double d = 0;
+			if(i%67==0) {
+				runCount=20;
+				d=1;
+				if(i>20)d-=Math.random()/randFraction;
+			} else if(runCount>0) {
+				if(runCount>15) {
+					d=1;
+					if(i>20)d-=Math.random()/randFraction;
+				}
+				else if(runCount>10) {
+					d=0;
+					if(i>20)d+=Math.random()/randFraction;
+				}
+				else {
+					d=1;
+					if(i>20)d-=Math.random()/randFraction;
+				}
+				--runCount;
+			}
+			else d=Math.random();
 			x[i] = d;
 			if( i < m )
 			{
@@ -135,6 +157,7 @@ public class Mueen {
 
 
 		//The Search
+		double minD = Double.MAX_VALUE;
 		for( int j = 0 ; j < n-m+1 ; ++j )
 		{
 			double sumxy = z[m-1+j];
@@ -145,11 +168,19 @@ public class Mueen {
 			double sigmax = (sumx2/m)-meanx*meanx;
 			sigmax = Math.sqrt(sigmax);
 
-			double c = ( sumxy - m*meanx*meany ) / ( m*sigmax*sigmay );
-			dist[j] = Math.sqrt(2*m*(1-c));
-
+			double c = ( sumxy - m*meanx*meany ) / ( m*sigmax*sigmay );		
+			double d = 2*m*(1-c);
+			if(d<0)dist[j]=0;
+			else {
+				dist[j] = Math.sqrt(d);
+				if(dist[j]<minD)minD=dist[j];
+			}
 		}
-
+		//handle the occasional NaN
+		for( int j = 0 ; j < n-m+1 ; ++j )
+		{
+			if(dist[j]==0)dist[j]=minD;
+		}
 		return dist;
 	}
 
