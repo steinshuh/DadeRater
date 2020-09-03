@@ -93,7 +93,6 @@ public class Mueen {
 		frame.setVisible(true);
 
 	}
-
 	
 	static double[] zNorm(double[] x, int n, double[] y)
 	{
@@ -110,7 +109,6 @@ public class Mueen {
 			y[i] = (x[i]-mean)/std;
 		return y;
 	}
-
 
 	static double[] findNN(double[] x, double[] y, int n, int m, double[] dist)
 	{
@@ -138,9 +136,7 @@ public class Mueen {
 			{
 				cy[i] = cy[i-1]+y[i-1];
 				cy2[i] = cy2[i-1]+y[i-1]*y[i-1];
-
 			}
-
 		}
 
 		//Compute the multiplication numbers
@@ -148,7 +144,6 @@ public class Mueen {
 		z = multiply(x,n,y,m,z);
 
 		//y Stats
-
 		double sumy = cy[m];
 		double sumy2 = cy2[m];
 		double meany = sumy/m;
@@ -157,7 +152,6 @@ public class Mueen {
 
 
 		//The Search
-		double minD = Double.MAX_VALUE;
 		for( int j = 0 ; j < n-m+1 ; ++j )
 		{
 			double sumxy = z[m-1+j];
@@ -169,18 +163,10 @@ public class Mueen {
 			sigmax = Math.sqrt(sigmax);
 
 			double c = ( sumxy - m*meanx*meany ) / ( m*sigmax*sigmay );		
-			double d = 2*m*(1-c);
-			if(d<0)dist[j]=0;
-			else {
-				dist[j] = Math.sqrt(d);
-				if(dist[j]<minD)minD=dist[j];
-			}
+			double d = Math.abs(2*m*(1-c));
+			dist[j] = Math.sqrt(d);
 		}
-		//handle the occasional NaN
-		for( int j = 0 ; j < n-m+1 ; ++j )
-		{
-			if(dist[j]==0)dist[j]=minD;
-		}
+		
 		return dist;
 	}
 
@@ -188,28 +174,10 @@ public class Mueen {
 	{
 
 		//assuming n > m
-		double[] X = new double[n];//(fftw_complex*) fftw_malloc(sizeof(fftw_complex) * 2 * n);
-		double[] Y = new double[n];//(fftw_complex*) fftw_malloc(sizeof(fftw_complex) * 2 * n);
-		//double[] XX = new double[4*n];//(fftw_complex*) fftw_malloc(sizeof(fftw_complex) * 2 * n);
-		//double[] YY = new double[4*n];//(fftw_complex*) fftw_malloc(sizeof(fftw_complex) * 2 * n);
-		double[] Z = new double[n];//(fftw_complex*) fftw_malloc(sizeof(fftw_complex) * 2 * n);
-		//double[] ZZ = new double[4*n];//(fftw_complex*) fftw_malloc(sizeof(fftw_complex) * 2 * n);
+		double[] X = new double[n];
+		double[] Y = new double[n];
+		double[] Z = new double[n];
 
-
-
-		/*for(int i = 0 ; i < 2*n ; i++ )
-		{
-			X[i][1] = 0; Y[i][1] = 0; //iaginary part is always zero
-			if(i < n )
-				X[i][0] = x[i];
-			else
-				X[i][0] = 0;
-
-			if(i < m )
-				Y[i][0] = y[m-i-1]; //reversing y
-			else
-				Y[i][0] = 0;
-		}*/
 		for(int i=0;i<n;++i) {
 			X[i]=x[i];
 		}
@@ -219,43 +187,23 @@ public class Mueen {
 			--j;
 		}
 
-
-		//p = fftw_plan_dft_1d(2 * n, X, XX, FFTW_FORWARD, FFTW_ESTIMATE);
-		//fftw_execute(p); 
 		DoubleFFT_1D fftx = new DoubleFFT_1D(X.length);
 		fftx.realForward(X);
 
-		//p = fftw_plan_dft_1d(2 * n, Y, YY, FFTW_FORWARD, FFTW_ESTIMATE);
-		//fftw_execute(p); 
 		DoubleFFT_1D ffty = new DoubleFFT_1D(Y.length);
 		ffty.realForward(Y);
 
-		/*for(int i = 0 ; i < 2*n; i++)
-		{
-			ZZ[i][0] = XX[i][0]*YY[i][0] - XX[i][1]*YY[i][1]; 
-			ZZ[i][1] = XX[i][1]*YY[i][0] + XX[i][0]*YY[i][1];
-		}*/
 		for(int i=0;i<n;i+=2) {
 			Z[i]=X[i]*Y[i] - X[i+1]*Y[i+1];
 			Z[i+1]=X[i+1]*Y[i] + X[i]*Y[i+1];
 		}
 
-		//p = fftw_plan_dft_1d(2 * n, ZZ , Z , FFTW_BACKWARD, FFTW_ESTIMATE);
-		//fftw_execute(p); 
 		DoubleFFT_1D fftz = new DoubleFFT_1D(Z.length);
 		fftz.realInverse(Z, false);
-
-		/*for(int i = 0; i < 2*n; i++ )
-			z[i] = Z[i][0]/(2*n);*/
 
 		for(int i=0;i<n;++i) {
 			z[i]=Z[i]/n;
 		}
-
-		//fftw_destroy_plan(p);
-		//fftw_free(X); fftw_free(Y);
-		//fftw_free(XX); fftw_free(YY);
-		//fftw_free(Z); fftw_free(ZZ);
 
 		return z;
 	}
