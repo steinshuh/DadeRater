@@ -30,6 +30,16 @@ import org.jfree.data.xy.XYDataset;
 
 
 public class Main {
+	//see how predictable the day is to itself
+	//sliding window
+	//every n seconds (10, for now)
+	//define Q
+	//compute dist
+	//check for dist < threshold (3, for now)
+	//determine the mean & sd at some future time t (60 seconds, for now)
+	//also try nearest neighbor
+	//compute profit?
+	
 
 	public static Map<String, Ticker> tickers = new TreeMap<String, Ticker>();
 	public static TreeMap<String, TreeSet<String>> comparisons = new TreeMap<String, TreeSet<String>>();
@@ -73,6 +83,7 @@ public class Main {
 		System.out.println("-hd <filename>          : read the given and perform a hex dump");
 		System.out.println("-c <symbol> <symbol>    : compare two symbols");
 		System.out.println("-df <symbol> <filename> : dump symbol data to the given file");
+		System.out.println("-q <query length sec.> <step sec.> <distance threshold>");
 	}
 
 	public static void main(String[] args) {
@@ -83,12 +94,40 @@ public class Main {
 		boolean needToDumpFile = false;
 		TreeSet<String> filesToIngest = new TreeSet<String>();
 		String fileToHexDump = null;
+		boolean needToQ = false;
+		int qQueryLength = 0;
+		int qStepSeconds = 0;
+		double qDistanceThreshold = 0;
 		int argsI = 0;
 		while(argsI < args.length){
 			System.out.println("arg: "+args[argsI]);
 			if(args[argsI].equals("-h")){
 				needToPrintUsage = true;
 				++argsI;
+			}else if(args[argsI].equals("-q")){
+				++argsI;
+				if(argsI < args.length){
+					qQueryLength = Integer.parseInt(args[argsI]);
+					System.out.println("\t"+qQueryLength);
+					++argsI;
+					if(argsI < args.length){
+						qStepSeconds = Integer.parseInt(args[argsI]);
+						System.out.println("\t"+qStepSeconds);
+						++argsI;
+						if(argsI < args.length){
+							qDistanceThreshold=Double.parseDouble(args[argsI]);
+							System.out.println("\t"+qDistanceThreshold);
+							needToQ=true;
+							++argsI;
+						} else {
+							needToPrintUsage = true;													
+						}
+					} else {
+						needToPrintUsage = true;						
+					}
+				} else {
+					needToPrintUsage = true;
+				}
 			}else if(args[argsI].equals("-df")){
 				++argsI;
 				if(argsI < args.length){
@@ -280,6 +319,9 @@ public class Main {
 					die("failed to close file: "+fileToDump,e);
 				}
 			}
+		}
+		if(needToQ){
+			q(qQueryLength, qStepSeconds, qDistanceThreshold);
 		}
 		System.out.println("testing dft");
 		for(Entry<String,Ticker> entry : tickers.entrySet()){
@@ -983,5 +1025,11 @@ public class Main {
 		long milliSeconds=nanoSeconds/(1000000);
 		double seconds = (double)(milliSeconds)/1000d;
 		return seconds/(60*60*24);
+	}
+	
+	public static void q(int queryLength, int stepSize, double distanceThreshold){
+		for(Ticker ticker : tickers.values()){
+			ticker.q(queryLength, stepSize, distanceThreshold);
+		}
 	}
 }

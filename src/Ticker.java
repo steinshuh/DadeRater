@@ -638,6 +638,60 @@ public class Ticker {
 			catch (IOException e) {die("dumpMoments: failed to write a newline "+filename,e);}
 		}		
 	}
+	
+	public void q(int queryLength, int stepSize, double distanceThreshold){
+		//see how predictable the day is to itself
+		//sliding window
+		//every n seconds (10, for now)
+		//define Q
+		//compute dist
+		//check for dist < threshold (3, for now)
+		//determine the mean & sd at some future time t (60 seconds, for now)
+		//also try nearest neighbor
+		//compute profit?
+		if(moments.isEmpty())return;
+		System.out.println("q for "+symbol);
+		PriceVector priceVector = computePriceVector();
+		double[] prices = priceVector.v;
+		double[] T = normalize(prices);
+		double[] Q = new double[queryLength];
+		int firstT = 0;//need to scan for this
+		int successes = 0;
+		int failures = 0;
+		int unknown = 0;
+		for(int t=firstT;t<T.length-Q.length-60;t+=stepSize){
+			for(int i=0;i<Q.length;++i) Q[i]=T[i];
+			double[] D = MASS.mass(Q, T);
+			double sum = 0;
+			double sum2 = 0;
+			double count = 0 ;
+			for(int dt = firstT; dt<T.length-Q.length-60; ++dt){
+				if((dt + queryLength < t || t + queryLength < dt) && 
+						D[dt]<distanceThreshold){
+					double predict = T[dt+queryLength+60];//need to pass this through as an argumet
+					++count;
+					sum+=predict;
+					sum2+=predict*predict;
+				}
+			}
+			if(count > 0){
+				double actual = T[t+queryLength+60];
+				double mean = sum/count;
+				double variance = sum2-((sum*sum)/count);
+				double standardDeviation = Math.sqrt(Math.abs(variance));
+				if((mean-standardDeviation) < actual && actual < (mean+standardDeviation)){
+					++successes;
+				} else {
+					++failures;
+				}
+			} else {
+				++unknown;
+			}
+		}
+		System.out.println("Q: "+symbol+" success: "+successes+
+				"  failures: "+failures+"  unknown: "+unknown);
+		
+	}
 
 
 	//----------- time series -----------
