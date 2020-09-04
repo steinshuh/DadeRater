@@ -3,6 +3,7 @@ import java.io.IOException;
 import java.util.Date;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.SortedMap;
 import java.util.TreeMap;
 
 import javax.swing.BoxLayout;
@@ -114,8 +115,9 @@ public class Ticker {
 		double[] prices = priceVector.v;
 		double[] normalizedPrices = normalize(prices);
 		showDoublePanel(symbol+" prices", normalizedPrices, priceVector.t, 1);
-		double[] Q = new double[256];
-		for(int i=0;i<Q.length;++i) Q[i]=normalizedPrices[i];
+		int qsz = 256;
+		double[] Q = new double[qsz];
+		for(int i=0;i<Q.length;++i) Q[i]=normalizedPrices[i+(5*qsz)];
 		
 		
 		double[] D = MASS.mass(Q, normalizedPrices);
@@ -189,17 +191,18 @@ public class Ticker {
 	}
 	
 	public PriceVector computePriceVector(){
+		//on the first market interval
+		Entry<Long,Long> entry = Main.marketHours.firstEntry();
+		if(entry==null)return null;
+		return computePriceVector(entry.getKey(), entry.getValue());
+	}
+	
+	public PriceVector computePriceVector(long hoursStart, long hoursEnd){
 		if(moments.isEmpty())return null;
-		Long st = 0L;
-		Long et = 0L;
-		for(Entry<Long, Moment> momentEntry : moments.entrySet()){
-			long t = momentEntry.getKey();
-			Moment m = momentEntry.getValue();
-			if(m.size>0){
-				if(st==0)st=t;
-				et=t;
-			}
-		}
+
+		SortedMap<Long, Moment> tradingMoments = moments.subMap(hoursStart, hoursEnd);
+		long st = tradingMoments.firstKey();
+		long et = tradingMoments.lastKey();
 		long totalDuration = et - st;
 		//total duration is in nanoseconds
 		final long billion = 1000000000L;
@@ -212,7 +215,7 @@ public class Ticker {
 		int currentVolume = 0;
 		double currentSummedPrice = 0;
 		int transitions=0;
-		for(Entry<Long, Moment> momentEntry : moments.entrySet()){
+		for(Entry<Long, Moment> momentEntry : tradingMoments.entrySet()){
 			long t = momentEntry.getKey();
 			if(st<=t && t<et){
 				Moment m = momentEntry.getValue();
@@ -287,146 +290,7 @@ public class Ticker {
 		}
 	}
 	
-	//between 0 and 1
-	public double[] computePriceVector(Long st, Long et){
-		long oneSecond = 1000000000L;
-		int len = 1+(int)((et-st)/oneSecond);
-		double[] rv = new double[len];
-		int i=0;
-		for(long t = st; t< et; t+=oneSecond) {
-			Entry<Long,Moment> entry = moments.ceilingEntry(t);
-			//double sum = 0;
-			//double count = 0;
-			double price = 0;
-			while(null!=entry && entry.getKey()<t+oneSecond) {
-				//int volume = Math.max(1, entry.getValue().size);
-				//sum+=entry.getValue().price * volume;
-				//count+=volume;
-				//++count;
-				//sum+=entry.getValue().price;
-				price = Math.max(price, entry.getValue().price);
-				entry = moments.higherEntry(entry.getKey());
-			}
-			//if(sum==0)rv[i]=0;
-			//else rv[i]=sum/count;
-			rv[i]=price;
-			++i;
-		}
-		//extend over 0s;
-		//  skip leading zeros
-		i=0;
-		while(i<rv.length && rv[i]==0)++i;
-		if(i<rv.length){
-			//fill runs of zeros with the previous value
-			double previousValue = rv[i];
-			for(++i;i<rv.length;++i){
-				if(rv[i]==0){
-					rv[i]=previousValue;
-				} else {
-					previousValue=rv[i];
-				}
-			}
-		}
-		return rv;
-	}
 	
-	boolean computePricePercentDeltaVector_displayed=false;
-	public double[] computePricePercentDeltaVector(Long st, Long et){
-		double[] rv = computePriceVector(st,et);
-		if(!computePricePercentDeltaVector_displayed){
-			Ticker.showDoublePanel(symbol+" pv", rv, st, 1); 			
-		}
-		for(int i=1;i<rv.length;++i){
-			if(rv[i-1]==0) {
-				if(rv[i]!=0){
-					rv[i-1]=1;//100% increase
-				}//otherwise leave it at 0% increase
-			} else {
-				if(rv[i]==0) {
-					rv[i-1]=-1;//100% decrease
-				} else {
-					rv[i-1]=(rv[i]-rv[i-1])/(rv[i]+rv[i-1]);
-				}
-			}
-		}
-		rv[rv.length-1]=0;
-		if(!computePricePercentDeltaVector_displayed){
-			computePricePercentDeltaVector_displayed=true;
-			Ticker.showDoublePanel(symbol+" deltas", rv, st, 1); 
-		}
-		return rv;
-	}
-
-	public TreeMap<Long, Double> computeCorrelation(int durationInSeconds, Ticker ticker) {
-		long oneSecond = 1000000000L;
-		long startingSecond = Math.min(this.moments.firstKey(), ticker.moments.firstKey());
-		long endingSecond = Math.max(this.moments.lastKey(), ticker.moments.lastKey());
-		double [] pdv = computePricePercentDeltaVector(startingSecond, endingSecond);
-		double [] tpdv = ticker.computePricePercentDeltaVector(startingSecond, endingSecond);
-		
-		double[] thisPricesFFT = MASS.FFT(MASS.extend(pdv, pdv.length));
-		double[] tickerPricesFFT = MASS.FFT(MASS.extend(tpdv, tpdv.length));
-		MASS.complexConjugateInPlace(tickerPricesFFT);
-		double[] fftProduct = MASS.elementwiseComplexMultiplication(thisPricesFFT, tickerPricesFFT);
-		double[] correl = MASS.inverseFFT(fftProduct);
-		TreeMap<Long,Double> correlation = new TreeMap<Long,Double>();
-		for(int i=0;i<pdv.length;++i){
-			correlation.put(oneSecond*(startingSecond+(long)i), correl[i]);
-		}
-		return correlation;
-	}
-
-	public TreeMap<Long, Double> alt_computeCorrelation(int durationInSeconds, Ticker ticker) {
-		long oneSecond = 1000000000L;
-		long startingSecond = Math.min(this.moments.firstKey(), ticker.moments.firstKey());
-		long endingSecond = Math.max(this.moments.lastKey(), ticker.moments.lastKey());
-		int priceLength = 1+(int)((endingSecond-startingSecond)/oneSecond);
-		double thisPrices[] = new double[priceLength];
-		double tickerPrices[] = new double[priceLength];
-		int length=0;
-		for(long t = startingSecond; t< endingSecond; t+=oneSecond) {
-			Entry<Long,Moment> thisEntry = moments.ceilingEntry(t);
-			double thisSum = 0;
-			double thisCount = 0;
-			while(null!=thisEntry && thisEntry.getKey()<t+oneSecond) {
-				int volume = Math.max(1, thisEntry.getValue().size);
-				thisSum+=thisEntry.getValue().price * volume;
-				thisCount+=volume;
-				thisEntry = moments.higherEntry(thisEntry.getKey());
-			}
-			Entry<Long,Moment> tickerEntry = ticker.moments.ceilingEntry(t);
-			double tickerSum = 0;
-			double tickerCount = 0;
-			while(null!=tickerEntry && tickerEntry.getKey()<t+oneSecond) {
-				int volume = Math.max(1, tickerEntry.getValue().size);
-				tickerSum+=tickerEntry.getValue().price * volume;
-				tickerCount+=volume;
-				tickerEntry = moments.higherEntry(tickerEntry.getKey());
-			}
-			if(thisCount==0) {
-				thisPrices[length]=0;
-			} else{
-				thisPrices[length]=thisSum/thisCount;
-			}
-			if(tickerCount==0){
-				tickerPrices[length]=0;
-			} else {
-				tickerPrices[length]=tickerSum/tickerCount;
-			}
-			++length;
-		}
-		double[] thisPricesFFT = MASS.FFT(MASS.extend(thisPrices, thisPrices.length));
-		double[] tickerPricesFFT = MASS.FFT(MASS.extend(tickerPrices, tickerPrices.length));
-		MASS.complexConjugateInPlace(tickerPricesFFT);
-		double[] fftProduct = MASS.elementwiseComplexMultiplication(thisPricesFFT, tickerPricesFFT);
-		double[] correl = MASS.inverseFFT(fftProduct);
-		TreeMap<Long,Double> correlation = new TreeMap<Long,Double>();
-		for(int i=0;i<thisPrices.length;++i){
-			correlation.put(oneSecond*(startingSecond+(long)i), correl[i]);
-		}
-		return correlation;
-	}
-
 
 	public Moment getRepresentativeMoment(long time) {
 		if(representativeMoments==null ||representativeMoments.isEmpty()) return null;
@@ -659,8 +523,8 @@ public class Ticker {
 		int successes = 0;
 		int failures = 0;
 		int unknown = 0;
-		int sumError = 0;
-		int totalCount = 0;
+		double sumError = 0;
+		double totalCount = 0;
 		for(int t=firstT;t<T.length-Q.length-60;t+=stepSize){
 			for(int i=0;i<Q.length;++i) Q[i]=T[i];
 			double[] D = MASS.mass(Q, T);

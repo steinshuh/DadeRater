@@ -141,7 +141,14 @@ public class MASS {
 		return Math.sqrt(Math.abs(v));
 	}
 	
-	static double[] mass(double[] Q, double[] T)
+	static double[] mass(double[] Q, double[] T){
+		if(Q==null)return null;
+		if(T==null)return null;
+		double[] dist = new double[T.length];
+
+		return Mueen.findNN(T,Q,T.length,Q.length,dist);
+	}
+	static double[] old_mass(double[] Q, double[] T)
 	{
 		double[] QT = slidingDotProduct(Q,T);
 		SeriesStatistics stats = new SeriesStatistics(Q,T);

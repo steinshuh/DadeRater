@@ -40,7 +40,7 @@ public class Main {
 	//also try nearest neighbor
 	//compute profit?
 	
-
+	public static TreeMap<Long, Long> marketHours = new TreeMap<Long,Long>();
 	public static Map<String, Ticker> tickers = new TreeMap<String, Ticker>();
 	public static TreeMap<String, TreeSet<String>> comparisons = new TreeMap<String, TreeSet<String>>();
 	public static Set<String> symbolFilter = null;
@@ -68,7 +68,7 @@ public class Main {
 		//invocation config: 
 		// args: -f ./data/20200716_IEXTP1_DEEP1.0.pcap
 		//       -f ./data/20180127_IEXTP1_DEEP1.0.pcap
-		//       -f ./data/20200716_IEXTP1_DEEP1.0.pcap -f ./data/20200716_IEXTP1_TOPS1.6.pcap -x MSFT -x GOOGL -x AAPL -c AAPL GOOGL -c AAPL MSFT -c GOOGL AAPL -c GOOGL MSFT -c MSFT AAPL -c MSFT GOOGL -df AAPL aapl.csv -df GOOGL googl.csv -df MSFT msft.csv		
+		//       -f ./data/20200716_IEXTP1_DEEP1.0.pcap -f ./data/20200716_IEXTP1_TOPS1.6.pcap -x MSFT -x GOOGL -x AAPL -c AAPL GOOGL -c AAPL MSFT -c GOOGL AAPL -c GOOGL MSFT -c MSFT AAPL -c MSFT GOOGL -df AAPL aapl.csv -df GOOGL googl.csv -df MSFT msft.csv -q 256 10 4		
 		// VM args: -Xms12g -Xmx12g
 		// takes about a minute to run
 		String inv = "["+invocation.length+"]";
@@ -262,7 +262,8 @@ public class Main {
 			hexDump(fileToHexDump);
 		}
 		if(!comparisons.isEmpty()) {
-			JFrame frame = new JFrame();
+			System.out.println("Not doing comparisons anymore, might later");
+			/*JFrame frame = new JFrame();
 			frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 			JPanel panel = new JPanel();
 			panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
@@ -293,7 +294,7 @@ public class Main {
 			JScrollPane scrollPane = new JScrollPane(panel);
 			frame.setContentPane(scrollPane);
 			frame.pack();
-			frame.setVisible(true);
+			frame.setVisible(true);*/
 		}
 		if(needToDumpFile){
 			for(Entry<String,TreeSet<String>> entry : dumps.entrySet()){
@@ -654,6 +655,7 @@ public class Main {
 		return 0;
 	}
 
+	private static long startOfRegularMarketHours=0;
 	public static boolean readDeepSystemEventMessage(InputStream s, int messageSize) {
 		int computedMessageSize =1;
 		int systemEvent = readByte(s);
@@ -664,12 +666,12 @@ public class Main {
 		if(t<0) return false;
 		if(computedMessageSize!=messageSize)fail();
 		switch(systemEvent) {
-		case 'O': return true;
-		case 'S': return true;
-		case 'R': return true;
-		case 'M': return true;
-		case 'E': return true;
-		case 'C': return true;
+		case 'O': return true;//start of messages
+		case 'S': return true;//start of system hours
+		case 'R': startOfRegularMarketHours=t; return true;//start of regular market hours
+		case 'M': marketHours.put(startOfRegularMarketHours,t);return true;//end of regular market hours
+		case 'E': return true;//end of system hours
+		case 'C': return true;//end of messages
 		}
 
 		return false;
