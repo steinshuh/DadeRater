@@ -68,7 +68,7 @@ public class Main {
 		//invocation config: 
 		// args: -f ./data/20200716_IEXTP1_DEEP1.0.pcap
 		//       -f ./data/20180127_IEXTP1_DEEP1.0.pcap
-		//       -f ./data/20200716_IEXTP1_DEEP1.0.pcap -f ./data/20200716_IEXTP1_TOPS1.6.pcap -x MSFT -x GOOGL -x AAPL -c AAPL GOOGL -c AAPL MSFT -c GOOGL AAPL -c GOOGL MSFT -c MSFT AAPL -c MSFT GOOGL -df AAPL aapl.csv -df GOOGL googl.csv -df MSFT msft.csv -q 256 10 4		
+		//       -f ./data/20200716_IEXTP1_DEEP1.0.pcap -f ./data/20200716_IEXTP1_TOPS1.6.pcap -x MSFT -x GOOGL -x AAPL -c AAPL GOOGL -c AAPL MSFT -c GOOGL AAPL -c GOOGL MSFT -c MSFT AAPL -c MSFT GOOGL -df AAPL aapl.csv -df GOOGL googl.csv -df MSFT msft.csv -q 256 10 4 60		
 		// VM args: -Xms12g -Xmx12g
 		// takes about a minute to run
 		String inv = "["+invocation.length+"]";
@@ -98,6 +98,7 @@ public class Main {
 		int qQueryLength = 0;
 		int qStepSeconds = 0;
 		double qDistanceThreshold = 0;
+		int qPredictOffset = 60;
 		int argsI = 0;
 		while(argsI < args.length){
 			System.out.println("arg: "+args[argsI]);
@@ -117,8 +118,15 @@ public class Main {
 						if(argsI < args.length){
 							qDistanceThreshold=Double.parseDouble(args[argsI]);
 							System.out.println("\t"+qDistanceThreshold);
-							needToQ=true;
 							++argsI;
+							if(argsI < args.length){
+								qPredictOffset=Integer.parseInt(args[argsI]);
+								System.out.println("\t"+qPredictOffset);
+								needToQ=true;
+								++argsI;
+							} else {
+								needToPrintUsage = true;
+							}
 						} else {
 							needToPrintUsage = true;													
 						}
@@ -322,7 +330,7 @@ public class Main {
 			}
 		}
 		if(needToQ){
-			q(qQueryLength, qStepSeconds, qDistanceThreshold);
+			q(qQueryLength, qStepSeconds, qDistanceThreshold, qPredictOffset);
 		}
 		System.out.println("testing dft");
 		for(Entry<String,Ticker> entry : tickers.entrySet()){
@@ -1029,9 +1037,9 @@ public class Main {
 		return seconds/(60*60*24);
 	}
 	
-	public static void q(int queryLength, int stepSize, double distanceThreshold){
+	public static void q(int queryLength, int stepSize, double distanceThreshold, int predictOffset){
 		for(Ticker ticker : tickers.values()){
-			ticker.q(queryLength, stepSize, distanceThreshold);
+			ticker.q(queryLength, stepSize, distanceThreshold, predictOffset);
 		}
 	}
 }

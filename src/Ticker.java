@@ -503,7 +503,7 @@ public class Ticker {
 		}		
 	}
 	
-	public void q(int queryLength, int stepSize, double distanceThreshold){
+	public void q(int queryLength, int stepSize, double distanceThreshold, int predictOffset){
 		//see how predictable the day is to itself
 		//sliding window
 		//every n seconds (10, for now)
@@ -525,23 +525,36 @@ public class Ticker {
 		int unknown = 0;
 		double sumError = 0;
 		double totalCount = 0;
-		for(int t=firstT;t<T.length-Q.length-60;t+=stepSize){
+		for(int t=firstT;t<T.length-Q.length-predictOffset;t+=stepSize){
 			for(int i=0;i<Q.length;++i) Q[i]=T[i];
 			double[] D = MASS.mass(Q, T);
 			double sum = 0;
 			double sum2 = 0;
 			double count = 0 ;
-			for(int dt = firstT; dt<T.length-Q.length-60; ++dt){
-				if((dt + queryLength < t || t + queryLength < dt) && 
-						D[dt]<distanceThreshold){
-					double predict = T[dt+queryLength+60];//need to pass this through as an argumet
-					++count;
-					sum+=predict;
-					sum2+=predict*predict;
+			TreeMap<Double, Integer> bestMatches = new TreeMap<Double, Integer>();
+			for(int dt = firstT; dt<T.length-Q.length-predictOffset; ++dt){
+				if((dt + queryLength < t || t + queryLength < dt)){
+					if(bestMatches.size()<distanceThreshold){
+						bestMatches.put(D[dt], dt);
+					} else {
+						if(D[dt] < bestMatches.lastKey()){
+							bestMatches.put(D[dt], dt);
+							if(bestMatches.size()>distanceThreshold){
+								bestMatches.remove(bestMatches.lastKey());
+							}
+						}
+					}
 				}
 			}
-			if(count > 0){
-				double actual = T[t+queryLength+60];
+			for(Entry<Double, Integer> entry : bestMatches.entrySet()){
+				int dt = entry.getValue();
+				double predict = T[dt+queryLength+predictOffset];
+				sum += predict;
+				sum2 += predict*predict;
+				++count;
+			}
+			if(count > 0){//TODO make an argument
+				double actual = T[t+queryLength+predictOffset];
 				double mean = sum/count;
 				double error = Math.abs(actual-mean);
 				++totalCount;
