@@ -659,6 +659,8 @@ public class Ticker {
 		int successes = 0;
 		int failures = 0;
 		int unknown = 0;
+		int sumError = 0;
+		int totalCount = 0;
 		for(int t=firstT;t<T.length-Q.length-60;t+=stepSize){
 			for(int i=0;i<Q.length;++i) Q[i]=T[i];
 			double[] D = MASS.mass(Q, T);
@@ -677,6 +679,9 @@ public class Ticker {
 			if(count > 0){
 				double actual = T[t+queryLength+60];
 				double mean = sum/count;
+				double error = Math.abs(actual-mean);
+				++totalCount;
+				sumError+=error;
 				double variance = sum2-((sum*sum)/count);
 				double standardDeviation = Math.sqrt(Math.abs(variance));
 				if((mean-standardDeviation) < actual && actual < (mean+standardDeviation)){
@@ -688,8 +693,10 @@ public class Ticker {
 				++unknown;
 			}
 		}
+		double averageError = sumError/totalCount;
 		System.out.println("Q: "+symbol+" success: "+successes+
-				"  failures: "+failures+"  unknown: "+unknown);
+				"  failures: "+failures+"  unknown: "+unknown+
+				"  average error: "+averageError);
 		
 	}
 
