@@ -532,6 +532,7 @@ public class Ticker {
 			double sum2 = 0;
 			double count = 0 ;
 			TreeMap<Double, Integer> bestMatches = new TreeMap<Double, Integer>();
+			//TODO need to suppress local similar matches
 			for(int dt = firstT; dt<T.length-Q.length-predictOffset; ++dt){
 				if((dt + queryLength < t || t + queryLength < dt)){
 					if(bestMatches.size()<distanceThreshold){
