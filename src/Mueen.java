@@ -1,3 +1,8 @@
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.util.Date;
 
 import javax.swing.BoxLayout;
@@ -94,6 +99,51 @@ public class Mueen {
 
 	}
 	
+	static void dump(double[] values, String filename)
+	{
+		if(values==null)Main.die("Mueen.dump " + filename + " null values", new Exception());
+		if(filename==null)Main.die("Mueen.dump null filename", new Exception());;
+		try {
+			FileWriter fw = new FileWriter(filename);
+			fw.write(""+values.length+"\n");
+			for(int i=0;i<values.length;++i) {
+				fw.write(""+values[i]+"\n");
+			}
+			fw.close();
+		} catch (Exception e) {
+			Main.die("Mueen.dump " + filename + " failed.", e);
+		}
+	}
+	
+	static double[] read(String filename)
+	{
+		if(filename==null)Main.die("Mueen.read null filename", new Exception());
+		try {
+			FileReader reader = new FileReader(filename);
+			BufferedReader breader = new BufferedReader(reader);
+			String s = breader.readLine();
+			if(s==null) {
+				breader.close();
+				Main.die("Mueen.read " + filename + " empty file", new Exception());
+			}
+			double[] values= new double[Integer.parseInt(s)];
+			int i=0;
+			for(s=breader.readLine();s!=null && i<values.length;s=breader.readLine()) {
+				values[i]=Double.parseDouble(s);
+				++i;
+			}
+			if(i!=values.length) {
+				System.err.println("Mueen.read "+filename+" read length is not the same as read value count: " 
+						+ values.length + ":" + i);
+			}
+			breader.close();
+			return values;
+		} catch (Exception e) {
+			Main.die("Mueen.read " + filename + " failed.", e);
+			return null;
+		}
+	}
+	
 	static double[] zNorm(double[] x, int n, double[] y)
 	{
 		double ex = 0, ex2 = 0;
@@ -104,7 +154,7 @@ public class Mueen {
 		}
 		double	mean = ex/n;
 		double std = ex2/n;
-		std = Math.sqrt(std-mean*mean);
+		std = Math.sqrt(Math.abs(std-mean*mean));
 		for(int i = 0 ; i < n ; i++ )
 			y[i] = (x[i]-mean)/std;
 		return y;
