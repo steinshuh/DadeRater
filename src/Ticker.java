@@ -532,16 +532,56 @@ public class Ticker {
 			double sum2 = 0;
 			double count = 0 ;
 			TreeMap<Double, Integer> bestMatches = new TreeMap<Double, Integer>();
+			TreeMap<Integer, Double> bestMatchCrossRef = new TreeMap<Integer, Double>();
 			//TODO need to suppress local similar matches
 			for(int dt = firstT; dt<T.length-Q.length-predictOffset; ++dt){
 				if((dt + queryLength < t || t + queryLength < dt)){
 					if(bestMatches.size()<distanceThreshold){
 						bestMatches.put(D[dt], dt);
+						bestMatchCrossRef.put(dt, D[dt]);
 					} else {
 						if(D[dt] < bestMatches.lastKey()){
-							bestMatches.put(D[dt], dt);
-							if(bestMatches.size()>distanceThreshold){
-								bestMatches.remove(bestMatches.lastKey());
+							//get the entry less than or equal to (won't be equal to)
+							Entry<Integer, Double> entry = bestMatchCrossRef.floorEntry(dt);
+							int clobberT= -1;
+							if(entry != null){
+								//close enough to clobber
+								if(dt-entry.getKey()<queryLength){
+									if(D[dt] < entry.getValue()){
+										//clobber
+										clobberT=entry.getKey();
+									}
+								}
+							}
+							entry=bestMatchCrossRef.ceilingEntry(dt);
+							if(entry != null){
+								//close enough to clobber
+								if(entry.getKey()-dt<queryLength){
+									if(D[dt] < entry.getValue()){
+										if(clobberT == -1){
+											clobberT=entry.getKey();
+										}else{
+											if(D[clobberT] < entry.getValue()){
+												clobberT=entry.getKey();
+											}
+										}
+									}
+								}
+							}
+							if(clobberT>-1){
+								if(D[dt]<bestMatches.lastKey()){
+									if(bestMatches.size()==distanceThreshold){
+										bestMatchCrossRef.remove(bestMatches.lastEntry().getValue());
+										bestMatches.remove(bestMatches.lastKey());
+									}
+									bestMatches.put(D[dt], dt);
+									bestMatchCrossRef.put(dt, D[dt]);
+								}
+							} else {
+								bestMatches.remove(D[dt]);
+								bestMatchCrossRef.remove(clobberT);
+								bestMatches.put(D[dt], dt);
+								bestMatchCrossRef.put(dt, D[dt]);
 							}
 						}
 					}
