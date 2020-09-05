@@ -43,6 +43,30 @@ public class Ticker {
 		Map<Long,Integer> buys = new TreeMap<Long,Integer>();
 	}
 
+	public static void main(String[] args) {
+		int queryLength=256;
+		int stepSize=10;
+		double distanceThreshold=10;
+		int predictOffset=60;
+		System.out.println("Ticker.main");
+		System.out.println("\treading files");
+		PriceVector msftPv = readPriceVector("external/testdata/msftvs.csv");
+		PriceVector aaplPv = readPriceVector("external/testdata/aaplvs.csv");
+		PriceVector googlPv = readPriceVector("external/testdata/googlvs.csv");
+		System.out.println("\tq");
+		for(int dt = 4;dt < distanceThreshold;++dt){
+			System.out.println("distance threshold (closest n):"+dt);
+			q(queryLength,stepSize,dt,predictOffset,msftPv);
+			q(queryLength,stepSize,dt,predictOffset,aaplPv);
+			q(queryLength,stepSize,dt,predictOffset,googlPv);
+		}
+		System.out.println("\tdone");
+
+	}
+
+
+
+
 	public String symbol;
 	public TreeMap<Long,Moment> moments = new TreeMap<Long,Moment>();
 
@@ -120,11 +144,11 @@ public class Ticker {
 		int qsz = 256;
 		double[] Q = new double[qsz];
 		for(int i=0;i<Q.length;++i) Q[i]=normalizedPrices[i+(5*qsz)];
-		
-		
+
+
 		double[] D = MASS.mass(Q, normalizedPrices);
 		showDoublePanel(symbol+" D", D, priceVector.t, 1);
-		
+
 	}
 
 	public void computeAltDFT(){
@@ -193,14 +217,14 @@ public class Ticker {
 			this.v=v;
 		}
 	}
-	
+
 	public PriceVector computePriceVector(){
 		//on the first market interval
 		Entry<Long,Long> entry = Main.marketHours.firstEntry();
 		if(entry==null)return null;
 		return computePriceVector(entry.getKey(), entry.getValue());
 	}
-	
+
 	public PriceVector computePriceVector(long hoursStart, long hoursEnd){
 		if(moments.isEmpty())return null;
 
@@ -263,12 +287,12 @@ public class Ticker {
 		}
 		return new PriceVector(symbol,st,prices);
 	}
-	
+
 	public void savePriceVector(String filename)
 	{
 		savePriceVector(computePriceVector(), filename);
 	}
-	
+
 	public static void savePriceVector(PriceVector priceVector, String filename)
 	{
 		if(priceVector==null)Main.die("Ticker.savePriceVector null priceVector", new Exception());
@@ -286,8 +310,8 @@ public class Ticker {
 			Main.die("Ticker("+priceVector.symbol+").savePriceVector " + filename + " failed.", e);
 		}
 	}
-	
-	
+
+
 	public static PriceVector readPriceVector(String filename)
 	{
 		if(filename==null)Main.die("Ticker.readPriceVector null filename", new Exception());
@@ -328,8 +352,8 @@ public class Ticker {
 		}
 
 	}
-	
-	
+
+
 	public static double computeCorrelation(
 			Entry<Long, Double> delta, 
 			Entry<Long, Double> otherDelta) {
@@ -359,8 +383,8 @@ public class Ticker {
 			}
 		}
 	}
-	
-	
+
+
 
 	public Moment getRepresentativeMoment(long time) {
 		if(representativeMoments==null ||representativeMoments.isEmpty()) return null;
@@ -572,7 +596,7 @@ public class Ticker {
 			catch (IOException e) {die("dumpMoments: failed to write a newline "+filename,e);}
 		}		
 	}
-	
+
 	public void q(int queryLength, int stepSize, double distanceThreshold, int predictOffset){
 		//see how predictable the day is to itself
 		//sliding window
@@ -586,6 +610,10 @@ public class Ticker {
 		if(moments.isEmpty())return;
 		System.out.println("q for "+symbol);
 		PriceVector priceVector = computePriceVector();
+		q(queryLength,stepSize,distanceThreshold,predictOffset,priceVector);
+	}
+	static public void q(int queryLength, int stepSize, double distanceThreshold, int predictOffset, PriceVector priceVector){
+
 		double[] prices = priceVector.v;
 		double[] T = normalize(prices);
 		double[] Q = new double[queryLength];
@@ -683,10 +711,10 @@ public class Ticker {
 			}
 		}
 		double averageError = sumError/totalCount;
-		System.out.println("Q: "+symbol+" success: "+successes+
+		System.out.println("Q: "+priceVector.symbol+" success: "+successes+
 				"  failures: "+failures+"  unknown: "+unknown+
 				"  average error: "+averageError);
-		
+
 	}
 
 
