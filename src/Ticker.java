@@ -46,7 +46,7 @@ public class Ticker {
 	public static void main(String[] args) {
 		int queryLength=256;
 		int stepSize=10;
-		double distanceThreshold=10;
+		double distanceThreshold=15;
 		int predictOffset=60;
 		System.out.println("Ticker.main");
 		System.out.println("\treading files");
@@ -54,7 +54,7 @@ public class Ticker {
 		PriceVector aaplPv = readPriceVector("external/testdata/aaplvs.csv");
 		PriceVector googlPv = readPriceVector("external/testdata/googlvs.csv");
 		System.out.println("\tq");
-		for(int dt = 4;dt < distanceThreshold;++dt){
+		for(int dt = 1;dt <= distanceThreshold;++dt){
 			System.out.println("distance threshold (closest n):"+dt);
 			q(queryLength,stepSize,dt,predictOffset,msftPv);
 			q(queryLength,stepSize,dt,predictOffset,aaplPv);
@@ -119,6 +119,38 @@ public class Ticker {
 
 	}
 
+	public static void showLongPanel(String title, long[] values, long startTime, int step){
+		JFrame frame = new JFrame();
+		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		JPanel panel = new JPanel();
+		panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+		frame.add(panel);
+
+		TimeSeries timeSeries = new TimeSeries(title);
+		final long billion = 1000000000;
+		for(int i=0;i<values.length;i+=step) {
+			Date t = Main.timeStampToDate(startTime + (i*billion));
+			try {
+				timeSeries.addOrUpdate(new Second(t), values[i]);
+			} catch(SeriesException e) {
+				System.err.println("Error adding to timeSeries: "+e);
+				Main.fail();
+			}
+		}
+		TimeSeriesCollection timeSeriesCollection = new TimeSeriesCollection(timeSeries);
+		JFreeChart chart = ChartFactory.createTimeSeriesChart(title, "time", "price", timeSeriesCollection, true, true, false);
+		ZoomSyncedChartPanel chartPanel = new ZoomSyncedChartPanel(chart);
+		chartPanel.setPreferredSize(new java.awt.Dimension(500,350));
+		chartPanel.setMouseZoomable(true,false);
+		panel.add(chartPanel);
+
+		JScrollPane scrollPane = new JScrollPane(panel);
+		frame.setContentPane(scrollPane);
+		frame.pack();
+		frame.setVisible(true);
+
+	}
+
 	public void spoutStats(String msg, double[] v){
 		if(v==null)
 		{
@@ -138,32 +170,38 @@ public class Ticker {
 	public void computeDFT(){
 		if(moments.isEmpty())return;
 		PriceVector priceVector = computePriceVector();
-		double[] prices = priceVector.v;
+		double[] prices = new double[priceVector.prices.length];
+		for(int i=0;i<priceVector.prices.length;++i){
+			prices[i]=(double)priceVector.prices[i];
+		}
 		double[] normalizedPrices = normalize(prices);
-		showDoublePanel(symbol+" prices", normalizedPrices, priceVector.t, 1);
+		showDoublePanel(symbol+" prices", normalizedPrices, priceVector.startTime, 1);
 		int qsz = 256;
 		double[] Q = new double[qsz];
 		for(int i=0;i<Q.length;++i) Q[i]=normalizedPrices[i+(5*qsz)];
 
 
 		double[] D = MASS.mass(Q, normalizedPrices);
-		showDoublePanel(symbol+" D", D, priceVector.t, 1);
+		showDoublePanel(symbol+" D", D, priceVector.startTime, 1);
 
 	}
 
 	public void computeAltDFT(){
 		if(moments.isEmpty())return;
 		PriceVector priceVector = computePriceVector();
-		double[] prices = priceVector.v;
+		double[] prices = new double[priceVector.prices.length];
+		for(int i=0;i<priceVector.prices.length;++i){
+			prices[i]=(double)priceVector.prices[i];
+		}
 		spoutStats("prices",prices);
 		//double[] normalizePrices = normalize(computePriceVector());
 		//spoutStats("normalizePrices",normalizePrices);
-		showDoublePanel(symbol+" price", prices, priceVector.t, 1);
+		showDoublePanel(symbol+" price", prices, priceVector.startTime, 1);
 		FFTbase fft = new FFTbase();
 		boolean ok= fft.adjustedFft(prices, null,
 				true);
 		if(!ok)System.out.println("fft computation failed for "+symbol);
-		showDoublePanel(symbol+" DFT", fft.xReal, priceVector.t, 1);
+		showDoublePanel(symbol+" DFT", fft.xReal, priceVector.startTime, 1);
 
 	}
 
@@ -209,12 +247,17 @@ public class Ticker {
 
 	public static class PriceVector {
 		public String symbol=null;
-		public double[] v=null;
-		public long t=0L;
-		public PriceVector(String symbol, long t, double[] v){
+		public long[] prices=null;
+		public long[] bids=null;
+		public long[] asks=null;
+		public long startTime=0L;
+		public PriceVector(String symbol, long startTime, long[] prices, long[] bids, long[] asks){
 			this.symbol=symbol;
-			this.t=t;
-			this.v=v;
+			this.startTime=startTime;
+			this.prices=prices;
+			this.bids=bids;
+			this.asks=asks;
+			
 		}
 	}
 
@@ -237,55 +280,37 @@ public class Ticker {
 		int totalDurationSeconds = (int)(totalDuration / billion);
 		if(totalDurationSeconds%2==1)++totalDurationSeconds;
 		//made even and doubled so we can use this for FFTs
-		double prices[] = new double[totalDurationSeconds];//initialized to 0
-		int previousIndex = 0;
+		long prices[] = new long[totalDurationSeconds];//initialized to 0
+		long pricesV[] = new long[totalDurationSeconds];
+		long bids[] = new long[totalDurationSeconds];
+		long bidsV[] = new long[totalDurationSeconds];
+		long asks[] = new long[totalDurationSeconds];
+		long asksV[] = new long[totalDurationSeconds];
 		long startT = st;
-		int currentVolume = 0;
-		double currentSummedPrice = 0;
-		int transitions=0;
+		
 		for(Entry<Long, Moment> momentEntry : tradingMoments.entrySet()){
 			long t = momentEntry.getKey();
-			if(st<=t && t<et){
-				Moment m = momentEntry.getValue();
-				int index = (int)((t - startT)/billion);
-				if(m.size > 0 && m.price > 0){
-					if(index > previousIndex){
-						++transitions;
-						//fill in the accumulated price for the previous bin
-						if(currentVolume==0){
-							prices[previousIndex]=0;
-						} else {
-							prices[previousIndex]=currentSummedPrice/(double)currentVolume;
-						}
-						//fill gaps if necessary (linear interpolation for now)
-						double gap = index - previousIndex;
-						for(double i = 1; i<gap; ++i){
-							prices[previousIndex+(int)i]=
-									((gap-i)/gap)*prices[previousIndex]
-											+ (i/gap)*m.price;
-						}
-						//start over and update price
-						currentVolume = m.size;
-						currentSummedPrice = currentVolume * 
-								(double)(m.price);
-						previousIndex=index;
-					}else{
-						//increment this bin
-						currentVolume += m.size;
-						currentSummedPrice += (double)(m.size) * 
-								(double)(m.price);
-					}
-				}
-			}
+			Moment m = momentEntry.getValue();
+			int index = (int)((t - startT)/billion);
+			prices[index]=m.price;
+			pricesV[index]+=m.size;
+			bids[index]=m.bidPrice;
+			bidsV[index]+=m.bidSize;
+			asks[index]=m.askPrice;
+			asksV[index]+=m.askSize;
 		}
-		System.out.println(symbol+" transitions "+transitions);
-		//fill in the accumulated price for the final used bin
-		prices[Math.min(totalDurationSeconds-1, previousIndex)]=currentSummedPrice/currentVolume;
-		//extend to the end of the prices vector
-		for(int i=previousIndex+1;i<totalDurationSeconds;++i){
-			prices[i]=prices[previousIndex];
+		long previousPrice=0;
+		long previousBid=0;
+		long previousAsk=0;
+		for(int i=0;i<totalDurationSeconds;++i){
+			if(prices[i]==0) prices[i]=previousPrice;
+			else previousPrice = prices[i];
+			if(bids[i]==0) bids[i]=previousBid;
+			else previousBid = bids[i];
+			if(asks[i]==0) asks[i]=previousAsk;
+			else previousAsk = asks[i];
 		}
-		return new PriceVector(symbol,st,prices);
+		return new PriceVector(symbol,st,prices,bids,asks);
 	}
 
 	public void savePriceVector(String filename)
@@ -300,10 +325,12 @@ public class Ticker {
 		try {
 			FileWriter fw = new FileWriter(filename);
 			fw.write(priceVector.symbol+"\n");
-			fw.write(""+priceVector.t+"\n");
-			fw.write(""+priceVector.v.length+"\n");
-			for(int i=0;i<priceVector.v.length;++i) {
-				fw.write(""+priceVector.v[i]+"\n");
+			fw.write(""+priceVector.startTime+"\n");
+			fw.write(""+priceVector.prices.length+"\n");
+			for(int i=0;i<priceVector.prices.length;++i) {
+				fw.write(""+priceVector.prices[i]+
+						", "+priceVector.bids[i]+
+						", "+priceVector.asks[i]+"\n");
 			}
 			fw.close();
 		} catch (Exception e) {
@@ -334,18 +361,26 @@ public class Ticker {
 				breader.close();
 				Main.die("Ticker.readPriceVector " + filename + " no entries past t", new Exception());
 			}
-			double[] values= new double[Integer.parseInt(s)];
+			long[] prices= new long[Integer.parseInt(s)];
+			long[] bids= new long[Integer.parseInt(s)];
+			long[] asks= new long[Integer.parseInt(s)];
 			int i=0;
-			for(s=breader.readLine();s!=null && i<values.length;s=breader.readLine()) {
-				values[i]=Double.parseDouble(s);
+			for(s=breader.readLine();s!=null && i<prices.length;s=breader.readLine()) {
+				String[] vs = s.split(",");
+				if(vs.length!=3){
+					Main.die("Ticker("+symbol+").readPriceVector failed split at line "+(i+3), new Exception());
+				}
+				prices[i]=Long.parseLong(vs[0]);
+				bids[i]=Long.parseLong(vs[0]);
+				asks[i]=Long.parseLong(vs[0]);
 				++i;
 			}
-			if(i!=values.length) {
+			if(i!=prices.length) {
 				System.err.println("Ticker.readPriceVector "+filename+" read length is not the same as read value count: " 
-						+ values.length + ":" + i);
+						+ prices.length + ":" + i);
 			}
 			breader.close();
-			return new PriceVector(symbol,t,values);
+			return new PriceVector(symbol,t,prices,bids,asks);
 		} catch (Exception e) {
 			Main.die("Ticker.readPriceVector " + filename + " failed.", e);
 			return null;
@@ -614,7 +649,10 @@ public class Ticker {
 	}
 	static public void q(int queryLength, int stepSize, double distanceThreshold, int predictOffset, PriceVector priceVector){
 
-		double[] prices = priceVector.v;
+		double[] prices = new double[priceVector.prices.length];
+		for(int i=0;i<priceVector.prices.length;++i){
+			prices[i]=(double)priceVector.prices[i];
+		}
 		double[] T = normalize(prices);
 		double[] Q = new double[queryLength];
 		int firstT = 0;//need to scan for this
