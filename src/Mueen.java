@@ -65,6 +65,17 @@ public class Mueen {
 		showDoublePanel("y", y, 0L, 1);
 		showDoublePanel("dist", dist, 0L, 1);
 
+		String fname="test_Mueen_dump.csv";
+		dump(dist, fname);
+		double[] newDist = read(fname);
+		if(dist.length!=newDist.length){
+			Main.die("dump-read failed, bad lengths, is "+newDist.length+" but should be "+dist.length, new Exception());
+		}
+		for(int i=0;i<dist.length;++i){
+			if(dist[i]!=newDist[i]){
+				System.err.println("dump-read fail:"+dist[i]+" != "+newDist[i]);
+			}
+		}
 	}
 
 	public static void showDoublePanel(String title, double[] values, long startTime, int step){

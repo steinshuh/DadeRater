@@ -46,6 +46,7 @@ public class Main {
 	public static Set<String> symbolFilter = null;
 	//filename, symbols
 	public static TreeMap<String, TreeSet<String>> dumps = new TreeMap<String, TreeSet<String>>();
+	public static TreeMap<String, TreeSet<String>> valueDumps = new TreeMap<String, TreeSet<String>>();
 
 	public static Ticker getTicker(String symbol) {
 		if(tickers.containsKey(symbol)) {
@@ -83,6 +84,7 @@ public class Main {
 		System.out.println("-hd <filename>          : read the given and perform a hex dump");
 		System.out.println("-c <symbol> <symbol>    : compare two symbols");
 		System.out.println("-df <symbol> <filename> : dump symbol data to the given file");
+		System.out.println("-dv <symbol> <filename> : dump raw symbol values to the given file");
 		System.out.println("-q <query length sec.> <step sec.> <distance threshold>");
 	}
 
@@ -92,6 +94,7 @@ public class Main {
 		boolean needToHexDump = false;
 		boolean needToTestGui = false;
 		boolean needToDumpFile = false;
+		boolean needToDumpValueFile = false;
 		TreeSet<String> filesToIngest = new TreeSet<String>();
 		String fileToHexDump = null;
 		boolean needToQ = false;
@@ -154,6 +157,31 @@ public class Main {
 						}
 						symbolsToDump.add(symbol);
 						System.out.println("\t"+fileToDump);
+						++argsI;
+					} else {
+						needToPrintUsage = true;					
+					}
+				} else {
+					needToPrintUsage = true;										
+				}
+			}else if(args[argsI].equals("-dv")){
+				++argsI;
+				if(argsI < args.length){
+					String symbol = args[argsI];
+					System.out.println("\t"+symbol);
+					++argsI;
+					if(argsI < args.length){
+						needToDumpValueFile = true;
+						String fileToDumpValues = args[argsI];
+						TreeSet<String> symbolsToDumpValues = null;
+						if(!valueDumps.containsKey(fileToDumpValues)){
+							symbolsToDumpValues = new TreeSet<String>();
+							valueDumps.put(fileToDumpValues, symbolsToDumpValues);
+						}else{
+							symbolsToDumpValues=valueDumps.get(fileToDumpValues);
+						}
+						symbolsToDumpValues.add(symbol);
+						System.out.println("\t"+fileToDumpValues);
 						++argsI;
 					} else {
 						needToPrintUsage = true;					
@@ -225,6 +253,9 @@ public class Main {
 				++argsI;
 			}
 		}
+		
+		
+		//process the command line arguments
 		if(needToIngestFile){
 			for(String fileToIngest : filesToIngest) {
 				System.out.print("parsing "+fileToIngest);
@@ -326,6 +357,36 @@ public class Main {
 					writer.close();
 				} catch (IOException e) {
 					die("failed to close file: "+fileToDump,e);
+				}
+			}
+		}
+		if(needToDumpValueFile){
+			for(Entry<String,TreeSet<String>> entry : valueDumps.entrySet()){
+				String fileToDump = entry.getKey();
+				String[] splitFname = fileToDump.split("\\.");
+				String prefix = splitFname[0];
+				String suffix = "";
+				if(splitFname.length>1){
+					suffix=splitFname[splitFname.length-1];
+					for(int i=1;i<splitFname.length-1;++i){
+						prefix+=splitFname[i];
+					}
+				}
+				
+				TreeSet<String> symbolsToDump = entry.getValue();
+				int symbolCount = 0;
+				for(String symbol : symbolsToDump){
+					Ticker ticker = tickers.get(symbol);
+					if(ticker!=null){
+						String fname=fileToDump;
+						if(symbolsToDump.size()>1){
+							fname=prefix+"_"+symbolCount;
+							if(!"".equals(suffix)){
+								fname+="."+suffix;
+							}
+						}
+						ticker.savePriceVector(fname);
+					}
 				}
 			}
 		}

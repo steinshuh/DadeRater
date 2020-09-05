@@ -1,3 +1,5 @@
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Date;
@@ -181,10 +183,12 @@ public class Ticker {
 		return out;
 	}
 
-	public class PriceVector {
+	public static class PriceVector {
+		public String symbol=null;
 		public double[] v=null;
 		public long t=0L;
-		public PriceVector(long t, double[] v){
+		public PriceVector(String symbol, long t, double[] v){
+			this.symbol=symbol;
 			this.t=t;
 			this.v=v;
 		}
@@ -257,9 +261,75 @@ public class Ticker {
 		for(int i=previousIndex+1;i<totalDurationSeconds;++i){
 			prices[i]=prices[previousIndex];
 		}
-		return new PriceVector(st,prices);
+		return new PriceVector(symbol,st,prices);
 	}
+	
+	public void savePriceVector(String filename)
+	{
+		savePriceVector(computePriceVector(), filename);
+	}
+	
+	public static void savePriceVector(PriceVector priceVector, String filename)
+	{
+		if(priceVector==null)Main.die("Ticker.savePriceVector null priceVector", new Exception());
+		if(filename==null)Main.die("Ticker("+priceVector.symbol+").savePriceVector null filename", new Exception());;
+		try {
+			FileWriter fw = new FileWriter(filename);
+			fw.write(priceVector.symbol+"\n");
+			fw.write(""+priceVector.t+"\n");
+			fw.write(""+priceVector.v.length+"\n");
+			for(int i=0;i<priceVector.v.length;++i) {
+				fw.write(""+priceVector.v[i]+"\n");
+			}
+			fw.close();
+		} catch (Exception e) {
+			Main.die("Ticker("+priceVector.symbol+").savePriceVector " + filename + " failed.", e);
+		}
+	}
+	
+	
+	public static PriceVector readPriceVector(String filename)
+	{
+		if(filename==null)Main.die("Ticker.readPriceVector null filename", new Exception());
+		try {
+			FileReader reader = new FileReader(filename);
+			BufferedReader breader = new BufferedReader(reader);
+			String symbol = breader.readLine();
+			if(symbol==null) {
+				breader.close();
+				Main.die("Ticker.readPriceVector " + filename + " empty file", new Exception());
+			}
+			String s = breader.readLine();
+			if(s==null) {
+				breader.close();
+				Main.die("Ticker.readPriceVector " + filename + " no entries past symbol", new Exception());
+			}
+			long t = Long.parseLong(s);
+			s = breader.readLine();
+			if(s==null) {
+				breader.close();
+				Main.die("Ticker.readPriceVector " + filename + " no entries past t", new Exception());
+			}
+			double[] values= new double[Integer.parseInt(s)];
+			int i=0;
+			for(s=breader.readLine();s!=null && i<values.length;s=breader.readLine()) {
+				values[i]=Double.parseDouble(s);
+				++i;
+			}
+			if(i!=values.length) {
+				System.err.println("Ticker.readPriceVector "+filename+" read length is not the same as read value count: " 
+						+ values.length + ":" + i);
+			}
+			breader.close();
+			return new PriceVector(symbol,t,values);
+		} catch (Exception e) {
+			Main.die("Ticker.readPriceVector " + filename + " failed.", e);
+			return null;
+		}
 
+	}
+	
+	
 	public static double computeCorrelation(
 			Entry<Long, Double> delta, 
 			Entry<Long, Double> otherDelta) {
@@ -537,6 +607,7 @@ public class Ticker {
 			for(int dt = firstT; dt<T.length-Q.length-predictOffset; ++dt){
 				if((dt + queryLength < t || t + queryLength < dt)){
 					if(bestMatches.size()<distanceThreshold){
+						//this needs to make sure local things don't get selected
 						bestMatches.put(D[dt], dt);
 						bestMatchCrossRef.put(dt, D[dt]);
 					} else {
