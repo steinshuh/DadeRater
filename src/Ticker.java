@@ -3,6 +3,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.SortedMap;
@@ -125,11 +126,6 @@ public class Ticker {
 		}
 	}
 	
-	public void computeOpenClose() {
-		//iterate forward
-		//iterate backward
-	}
-	
 	public void loadMoments(BufferedReader breader, String filename) {
 		if(moments==null) {
 			moments=new TreeMap<Long,Moment>();
@@ -227,10 +223,61 @@ public class Ticker {
 				System.err.println("Ticker.loadMoments "+filename+" read length is not the same as read value count: " 
 						+ moments.size() + ":" + i);
 			}
+			updateMarketHours();
 		} catch (Exception e) {
 			Main.die("Ticker.loadMoments " + filename + " failed at moment "+i+".", e);
 		}
-
+		
+	}
+	
+	public void updateMarketHours() {
+		if(moments==null)return;
+		Iterator<Entry<Long,Moment>> i = moments.entrySet().iterator();
+		boolean searching=true;
+		long t=0;
+		while(i.hasNext() && searching) {
+			Entry<Long,Moment> entry = i.next();
+			if(!entry.getValue().isEmpty()) {
+				searching=false;
+				t=entry.getKey();
+			}
+		}
+		if(!searching) {
+			i=moments.descendingMap().entrySet().iterator();
+			searching=true;
+			long e=t;
+			while(i.hasNext() && searching) {
+				Entry<Long,Moment> entry = i.next();
+				if(!entry.getValue().isEmpty()) {
+					searching=false;
+					e=entry.getKey();
+				}
+			}
+			if(t<e) {
+				if(Main.marketHours.isEmpty()) {
+					Main.marketHours.put(t, e);
+				} else {
+					//same time or previous
+					Entry<Long,Long> mhEntry = Main.marketHours.floorEntry(t);
+					if(mhEntry!=null && mhEntry.getValue()>=t) {
+						//gotta merge with existing
+						t=mhEntry.getKey();
+						e=Math.max(e, mhEntry.getValue());
+						Main.marketHours.replace(t,e);
+					} else {
+						//after
+						mhEntry = Main.marketHours.higherEntry(t);
+						if(mhEntry==null || mhEntry.getKey()>e) {
+							//after this, so just add it
+							Main.marketHours.put(t, e);
+						} else {
+							//overlaps, so merge
+							Main.marketHours.put(t,Math.max(e, mhEntry.getValue()));
+						}
+					}
+				}
+			}
+		}
 	}
 	
 	
