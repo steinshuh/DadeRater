@@ -2,8 +2,10 @@
 
 import java.awt.Dimension;
 import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,11 +24,9 @@ import javax.swing.JScrollPane;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
-import org.jfree.data.general.SeriesException;
 import org.jfree.data.time.Second;
 import org.jfree.data.time.TimeSeries;
 import org.jfree.data.time.TimeSeriesCollection;
-import org.jfree.data.xy.XYDataset;
 
 
 public class Main {
@@ -39,14 +39,16 @@ public class Main {
 	//determine the mean & sd at some future time t (60 seconds, for now)
 	//also try nearest neighbor
 	//compute profit?
-	
-	public static TreeMap<Long, Long> marketHours = new TreeMap<Long,Long>();
-	public static Map<String, Ticker> tickers = new TreeMap<String, Ticker>();
-	public static TreeMap<String, TreeSet<String>> comparisons = new TreeMap<String, TreeSet<String>>();
+
+	public static TreeMap<Long, Long> marketHours = new TreeMap<>();
+	public static Map<String, Ticker> tickers = new TreeMap<>();
+	public static TreeMap<String, TreeSet<String>> comparisons = new TreeMap<>();
 	public static Set<String> symbolFilter = null;
 	//filename, symbols
-	public static TreeMap<String, TreeSet<String>> dumps = new TreeMap<String, TreeSet<String>>();
-	public static TreeMap<String, TreeSet<String>> valueDumps = new TreeMap<String, TreeSet<String>>();
+	public static TreeMap<String, TreeSet<String>> dumps = new TreeMap<>();
+	public static TreeMap<String, TreeSet<String>> valueDumps = new TreeMap<>();
+	public static TreeMap<String, String> saves = new TreeMap<>();
+	public static TreeSet<String> filesToLoad = new TreeSet<>();
 
 	public static Ticker getTicker(String symbol) {
 		if(tickers.containsKey(symbol)) {
@@ -70,6 +72,8 @@ public class Main {
 		// args: -f ./data/20200716_IEXTP1_DEEP1.0.pcap
 		//       -f ./data/20180127_IEXTP1_DEEP1.0.pcap
 		//       -f ./data/20200716_IEXTP1_DEEP1.0.pcap -f ./data/20200716_IEXTP1_TOPS1.6.pcap -x MSFT -x GOOGL -x AAPL -c AAPL GOOGL -c AAPL MSFT -c GOOGL AAPL -c GOOGL MSFT -c MSFT AAPL -c MSFT GOOGL -df AAPL aapl.csv -df GOOGL googl.csv -df MSFT msft.csv -q 256 10 4 60		
+		//       -f ./data/20200716_IEXTP1_DEEP1.0.pcap -f ./data/20200716_IEXTP1_TOPS1.6.pcap -x MSFT -x GOOGL -x AAPL -save AAPL aapl.mom -save GOOGL googl.mom -save MSFT msft.mom
+		//       -load ./data/moms/aapl.mom -load ./data/moms/googl.mom -load ./data/moms/msft.mom
 		// VM args: -Xms12g -Xmx12g
 		// takes about a minute to run
 		String inv = "["+invocation.length+"]";
@@ -78,13 +82,15 @@ public class Main {
 			inv+=invocation[i];
 		}
 		System.out.println("invocation: "+inv);
-		System.out.println("-h                      : help (this listing)");
-		System.out.println("-f <filename>           : read the given file");
-		System.out.println("-x <symbol>             : symbol to add to the filter");
-		System.out.println("-hd <filename>          : read the given and perform a hex dump");
-		System.out.println("-c <symbol> <symbol>    : compare two symbols");
-		System.out.println("-df <symbol> <filename> : dump symbol data to the given file");
-		System.out.println("-dv <symbol> <filename> : dump raw symbol values to the given file");
+		System.out.println("-h                        : help (this listing)");
+		System.out.println("-f <filename>             : read the given file");
+		System.out.println("-x <symbol>               : symbol to add to the filter");
+		System.out.println("-hd <filename>            : read the given and perform a hex dump");
+		System.out.println("-c <symbol> <symbol>      : compare two symbols");
+		System.out.println("-df <symbol> <filename>   : dump symbol data to the given file");
+		System.out.println("-dv <symbol> <filename>   : dump raw symbol values to the given file");
+		System.out.println("-save <symbol> <filename> : save symbol moments to the given file");
+		System.out.println("-load <filename>          : load symbol moments to the given file");
 		System.out.println("-q <query length sec.> <step sec.> <distance threshold>");
 	}
 
@@ -95,6 +101,8 @@ public class Main {
 		boolean needToTestGui = false;
 		boolean needToDumpFile = false;
 		boolean needToDumpValueFile = false;
+		boolean needToSaveFile = false;
+		boolean needToLoadFiles = false;
 		TreeSet<String> filesToIngest = new TreeSet<String>();
 		String fileToHexDump = null;
 		boolean needToQ = false;
@@ -108,6 +116,35 @@ public class Main {
 			if(args[argsI].equals("-h")){
 				needToPrintUsage = true;
 				++argsI;
+			}else if(args[argsI].equals("-load")){
+				++argsI;
+				if(argsI < args.length){
+					needToLoadFiles = true;
+					String f = args[argsI];
+					filesToLoad.add(f);
+					System.out.println("\t"+f);
+					++argsI;
+				} else {
+					needToPrintUsage = true;										
+				}
+			}else if(args[argsI].equals("-save")){
+				++argsI;
+				if(argsI < args.length){
+					String symbol = args[argsI];
+					System.out.println("\t"+symbol);
+					++argsI;
+					if(argsI < args.length){
+						needToSaveFile = true;
+						String fileToSave = args[argsI];
+						saves.put(symbol, fileToSave);
+						System.out.println("\t"+fileToSave);
+						++argsI;
+					} else {
+						needToPrintUsage = true;					
+					}
+				} else {
+					needToPrintUsage = true;										
+				}
 			}else if(args[argsI].equals("-q")){
 				++argsI;
 				if(argsI < args.length){
@@ -253,9 +290,23 @@ public class Main {
 				++argsI;
 			}
 		}
-		
-		
+
+
 		//process the command line arguments
+		if(needToLoadFiles) {
+			for(String f : filesToLoad) {
+				try {
+					FileReader reader = new FileReader(f);
+					BufferedReader breader = new BufferedReader(reader);
+					String symbol = breader.readLine();
+					Ticker ticker = getTicker(symbol);
+					ticker.loadMoments(breader, f);
+					breader.close();
+				} catch (Exception e) {
+					die("Main -load " + f + " failed.", e);
+				}
+			}
+		}
 		if(needToIngestFile){
 			for(String fileToIngest : filesToIngest) {
 				System.out.print("parsing "+fileToIngest);
@@ -290,9 +341,6 @@ public class Main {
 			frame.setContentPane(scrollPane);
 			frame.pack();
 			frame.setVisible(true);
-		}
-		if(needToPrintUsage){
-			printUsage(args);
 		}
 		if(needToTestGui){
 			testGui();
@@ -372,7 +420,7 @@ public class Main {
 						prefix+=splitFname[i];
 					}
 				}
-				
+
 				TreeSet<String> symbolsToDump = entry.getValue();
 				int symbolCount = 0;
 				for(String symbol : symbolsToDump){
@@ -390,6 +438,18 @@ public class Main {
 				}
 			}
 		}
+		if(needToSaveFile){
+			for(Entry<String,String> entry : saves.entrySet()){
+				String symbol = entry.getKey();
+				String f = entry.getValue();
+				Ticker ticker = tickers.get(symbol);
+				if(ticker==null) {
+					System.err.println("trying to save "+f+" but "+symbol+" is not initialized/found.");
+				}else {
+					ticker.saveMoments(f);
+				}
+			}
+		}
 		if(needToQ){
 			q(qQueryLength, qStepSeconds, qDistanceThreshold, qPredictOffset);
 		}
@@ -398,6 +458,9 @@ public class Main {
 			System.out.println("  testing dft on "+entry.getKey());
 			entry.getValue().computeDFT();
 			System.out.println("  done");
+		}
+		if(needToPrintUsage){
+			printUsage(args);
 		}
 		System.out.println("ok");
 	}
@@ -1097,7 +1160,7 @@ public class Main {
 		double seconds = (double)(milliSeconds)/1000d;
 		return seconds/(60*60*24);
 	}
-	
+
 	public static void q(int queryLength, int stepSize, double distanceThreshold, int predictOffset){
 		for(Ticker ticker : tickers.values()){
 			ticker.q(queryLength, stepSize, distanceThreshold, predictOffset);

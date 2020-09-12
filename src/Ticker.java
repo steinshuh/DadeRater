@@ -41,6 +41,14 @@ public class Ticker {
 		int askSize=0;
 		Map<Long,Integer> sells = new TreeMap<Long,Integer>();
 		Map<Long,Integer> buys = new TreeMap<Long,Integer>();
+		boolean isEmpty() {
+			return price==0 &&
+					size==0 &&
+					bidPrice==0 &&
+					askPrice==0 &&
+					sells.size()==0 &&
+					buys.size()==0;
+		}
 	}
 
 	public static void main(String[] args) {
@@ -117,77 +125,72 @@ public class Ticker {
 		}
 	}
 	
-	public void loadMoments(String filename) {
+	public void computeOpenClose() {
+		//iterate forward
+		//iterate backward
+	}
+	
+	public void loadMoments(BufferedReader breader, String filename) {
 		if(moments==null) {
 			moments=new TreeMap<Long,Moment>();
 		}else {
 			moments.clear();
 		}
-		if(filename==null)Main.die("Ticker.loadMoments null filename", new Exception());
+		int i=0;
 		try {
-			FileReader reader = new FileReader(filename);
-			BufferedReader breader = new BufferedReader(reader);
-			String readSymbol = breader.readLine();
-			if(readSymbol==null) {
-				breader.close();
-				Main.die("Ticker.loadMoments " + filename + " empty file", new Exception());
-			}
-			if(!symbol.equals(readSymbol)) {
-				breader.close();
-				Main.die("Ticker.loadMoments " + filename + " mismatched symbols:"+symbol+", "+readSymbol, new Exception());
-			}
 			String s = breader.readLine();
 			if(s==null) {
 				breader.close();
 				Main.die("Ticker.loadMoments " + filename + " no entries past symbol", new Exception());
 			}
 			int momentCount = Integer.parseInt(s);
-			s = breader.readLine();
-			if(s==null) {
-				breader.close();
-				Main.die("Ticker.loadMoments " + filename + " no entries past moment count", new Exception());
-			}
-			int i=0;
-			for(s=breader.readLine();s!=null && i<momentCount;s=breader.readLine()) {
-				long price=Long.parseLong(s);
+			for(s=breader.readLine();s!=null && i<momentCount;) {			
+				Long t = Long.parseLong(s);
+				Moment m = new Moment();
+				s=breader.readLine();
+				if(s==null) {
+					breader.close();
+					Main.die("Ticker.loadMoments " + filename + " moment cut off before price", new Exception());
+				}
+				m.price=Long.parseLong(s);
 				s=breader.readLine();
 				if(s==null) {
 					breader.close();
 					Main.die("Ticker.loadMoments " + filename + " moment cut off before size", new Exception());
 				}
-				int size=Integer.parseInt(s);
+				m.size=Integer.parseInt(s);
 				s=breader.readLine();
 				if(s==null) {
 					breader.close();
 					Main.die("Ticker.loadMoments " + filename + " moment cut off before bidPrice", new Exception());
 				}
-				long bidPrice=Long.parseLong(s);
+				m.bidPrice=Long.parseLong(s);
 				s=breader.readLine();
 				if(s==null) {
 					breader.close();
 					Main.die("Ticker.loadMoments " + filename + " moment cut off before bidSize", new Exception());
 				}
-				int bidSize=Integer.parseInt(s);
+				m.bidSize=Integer.parseInt(s);
 				s=breader.readLine();
 				if(s==null) {
 					breader.close();
 					Main.die("Ticker.loadMoments " + filename + " moment cut off before askPrice", new Exception());
 				}
-				long askPrice=Long.parseLong(s);
+				m.askPrice=Long.parseLong(s);
 				s=breader.readLine();
 				if(s==null) {
 					breader.close();
 					Main.die("Ticker.loadMoments " + filename + " moment cut off before askSize", new Exception());
 				}
-				int askSize=Integer.parseInt(s);
+				m.askSize=Integer.parseInt(s);
 				s=breader.readLine();
 				if(s==null) {
 					breader.close();
 					Main.die("Ticker.loadMoments " + filename + " moment cut off before sells size", new Exception());
 				}
 				int sellsSize = Integer.parseInt(s);
-				Map<Long,Integer> sells = new TreeMap<Long,Integer>();
-				Map<Long,Integer> buys = new TreeMap<Long,Integer>();
+				Map<Long,Integer> sells = m.sells;
+				Map<Long,Integer> buys = m.buys;
 				int sellsI=0;
 				for(s=breader.readLine();sellsI<sellsSize;s=breader.readLine()) {
 					if(s==null) {
@@ -196,7 +199,7 @@ public class Ticker {
 					}
 					String[] ss = s.split(",");
 					long v = Long.parseLong(ss[0]);
-					int sz = Integer.parseInt(ss[1]);
+					int sz = Integer.parseInt(ss[1].trim());
 					sells.put(v, sz);
 					++sellsI;
 				}
@@ -213,19 +216,19 @@ public class Ticker {
 					}
 					String[] ss = s.split(",");
 					long v = Long.parseLong(ss[0]);
-					int sz = Integer.parseInt(ss[1]);
+					int sz = Integer.parseInt(ss[1].trim());
 					buys.put(v, sz);
 					++buysI;
 				}
+				moments.put(t, m);
 				++i;
 			}
 			if(i!=moments.size()) {
 				System.err.println("Ticker.loadMoments "+filename+" read length is not the same as read value count: " 
 						+ moments.size() + ":" + i);
 			}
-			breader.close();
 		} catch (Exception e) {
-			Main.die("Ticker.loadMoments " + filename + " failed.", e);
+			Main.die("Ticker.loadMoments " + filename + " failed at moment "+i+".", e);
 		}
 
 	}
