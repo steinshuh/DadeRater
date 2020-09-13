@@ -125,7 +125,7 @@ public class Ticker {
 			Main.die("Ticker("+symbol+").saveMoments " + filename + " failed.", e);
 		}
 	}
-	
+
 	public void loadMoments(BufferedReader breader, String filename) {
 		if(moments==null) {
 			moments=new TreeMap<Long,Moment>();
@@ -223,64 +223,57 @@ public class Ticker {
 				System.err.println("Ticker.loadMoments "+filename+" read length is not the same as read value count: " 
 						+ moments.size() + ":" + i);
 			}
+			trimMoments();
 			updateMarketHours();
 		} catch (Exception e) {
 			Main.die("Ticker.loadMoments " + filename + " failed at moment "+i+".", e);
 		}
-		
 	}
-	
+
+	/**
+	 * Remove leading and trailing empty moments
+	 */
+	void trimMoments() {
+		if(moments==null)return;
+		while(!moments.isEmpty() && moments.firstEntry().getValue().isEmpty()) {
+			moments.remove(moments.firstKey());
+		}
+		while(!moments.isEmpty() && moments.lastEntry().getValue().isEmpty()) {
+			moments.remove(moments.lastKey());
+		}
+	}
+
 	public void updateMarketHours() {
 		if(moments==null)return;
-		Iterator<Entry<Long,Moment>> i = moments.entrySet().iterator();
-		boolean searching=true;
-		long t=0;
-		while(i.hasNext() && searching) {
-			Entry<Long,Moment> entry = i.next();
-			if(!entry.getValue().isEmpty()) {
-				searching=false;
-				t=entry.getKey();
+		if(moments.isEmpty())return;
+		long start = moments.firstKey();
+		long end = moments.lastKey();
+		Entry<Long,Long> entry = Main.marketHours.floorEntry(start);
+		if(entry==null || entry.getValue()<start) {
+			//nothing or it comes before, so check trailing
+			entry = Main.marketHours.higherEntry(start);
+			if(entry==null || entry.getKey()>end) {
+				//nothing after, so add
+				Main.marketHours.put(start, end);
+			} else if(entry.getKey()>end){
+				//after is completely after, so add
+				Main.marketHours.put(start, end);				
+			} else {
+				//overlaps with after
+				long tToDelete = entry.getKey();
+				end = Math.max(end, entry.getValue());
+				Main.marketHours.remove(tToDelete);
+				Main.marketHours.put(start, end);
 			}
-		}
-		if(!searching) {
-			i=moments.descendingMap().entrySet().iterator();
-			searching=true;
-			long e=t;
-			while(i.hasNext() && searching) {
-				Entry<Long,Moment> entry = i.next();
-				if(!entry.getValue().isEmpty()) {
-					searching=false;
-					e=entry.getKey();
-				}
-			}
-			if(t<e) {
-				if(Main.marketHours.isEmpty()) {
-					Main.marketHours.put(t, e);
-				} else {
-					//same time or previous
-					Entry<Long,Long> mhEntry = Main.marketHours.floorEntry(t);
-					if(mhEntry!=null && mhEntry.getValue()>=t) {
-						//gotta merge with existing
-						t=mhEntry.getKey();
-						e=Math.max(e, mhEntry.getValue());
-						Main.marketHours.replace(t,e);
-					} else {
-						//after
-						mhEntry = Main.marketHours.higherEntry(t);
-						if(mhEntry==null || mhEntry.getKey()>e) {
-							//after this, so just add it
-							Main.marketHours.put(t, e);
-						} else {
-							//overlaps, so merge
-							Main.marketHours.put(t,Math.max(e, mhEntry.getValue()));
-						}
-					}
-				}
-			}
+		} else {
+			//overlaps
+			end = Math.max(end, entry.getValue());
+			start = entry.getKey();
+			Main.marketHours.replace(start, end);
 		}
 	}
-	
-	
+
+
 	public Moment getMoment(long time) {
 		if(moments.containsKey(time)) {
 			return moments.get(time);
@@ -460,7 +453,7 @@ public class Ticker {
 			this.prices=prices;
 			this.bids=bids;
 			this.asks=asks;
-			
+
 		}
 	}
 
@@ -490,7 +483,7 @@ public class Ticker {
 		long asks[] = new long[totalDurationSeconds];
 		long asksV[] = new long[totalDurationSeconds];
 		long startT = st;
-		
+
 		for(Entry<Long, Moment> momentEntry : tradingMoments.entrySet()){
 			long t = momentEntry.getKey();
 			Moment m = momentEntry.getValue();
