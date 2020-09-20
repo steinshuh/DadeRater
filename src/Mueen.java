@@ -223,10 +223,8 @@ public class Mueen {
 			double sigmax = (sumx2/m)-meanx*meanx;
 			sigmax = Math.sqrt(Math.abs(sigmax));
 			double c = (1+( sumxy - m*meanx*meany )) / (1+( m*sigmax*sigmay ));	
-			if(Double.isInfinite(c))Main.die("infinite c value at "+j, new Exception());			
 			double d = Math.abs(2*m*(1-c));
 			dist[j] = Math.sqrt(d);
-			if(Double.isInfinite(dist[j]))Main.die("infinite dist value at "+j, new Exception());
 		}
 		
 		return dist;
