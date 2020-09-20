@@ -209,7 +209,7 @@ public class Mueen {
 		double sumy2 = cy2[m];
 		double meany = sumy/m;
 		double sigmay = (sumy2/m)-meany*meany;
-		sigmay = Math.sqrt(sigmay);
+		sigmay = Math.sqrt(Math.abs(sigmay));
 
 
 		//The Search
@@ -221,11 +221,12 @@ public class Mueen {
 			double sumx2 = cx2[j+m]-cx2[j];
 			double meanx = sumx/m;
 			double sigmax = (sumx2/m)-meanx*meanx;
-			sigmax = Math.sqrt(sigmax);
-
-			double c = ( sumxy - m*meanx*meany ) / ( m*sigmax*sigmay );		
+			sigmax = Math.sqrt(Math.abs(sigmax));
+			double c = (1+( sumxy - m*meanx*meany )) / (1+( m*sigmax*sigmay ));	
+			if(Double.isInfinite(c))Main.die("infinite c value at "+j, new Exception());			
 			double d = Math.abs(2*m*(1-c));
 			dist[j] = Math.sqrt(d);
+			if(Double.isInfinite(dist[j]))Main.die("infinite dist value at "+j, new Exception());
 		}
 		
 		return dist;

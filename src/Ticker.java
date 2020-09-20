@@ -374,7 +374,7 @@ public class Ticker {
 		showDoublePanel(symbol+" prices", normalizedPrices, priceVector.startTime, 1);
 		int qsz = 256;
 		double[] Q = new double[qsz];
-		for(int i=0;i<Q.length;++i) Q[i]=normalizedPrices[i+(5*qsz)];
+		for(int i=0;i<Q.length;++i) Q[i]=normalizedPrices[7200+i+(5*qsz)];
 
 
 		double[] D = MASS.mass(Q, normalizedPrices);
@@ -482,12 +482,12 @@ public class Ticker {
 		long bidsV[] = new long[totalDurationSeconds];
 		long asks[] = new long[totalDurationSeconds];
 		long asksV[] = new long[totalDurationSeconds];
-		long startT = st;
 
 		for(Entry<Long, Moment> momentEntry : tradingMoments.entrySet()){
 			long t = momentEntry.getKey();
 			Moment m = momentEntry.getValue();
-			int index = (int)((t - startT)/billion);
+			int index = (int)((t - st)/billion);
+			if(index>=prices.length)break;
 			prices[index]=m.price;
 			pricesV[index]+=m.size;
 			bids[index]=m.bidPrice;
@@ -498,6 +498,12 @@ public class Ticker {
 		long previousPrice=0;
 		long previousBid=0;
 		long previousAsk=0;
+		for(int i=0;i<totalDurationSeconds;++i){
+			if(previousPrice==0&&prices[i]!=0)previousPrice=prices[i];
+			if(previousBid==0&&bids[i]!=0)previousBid=bids[i];
+			if(previousAsk==0&&asks[i]!=0)previousAsk=asks[i];
+			if(previousPrice!=0 && previousBid!=0 && previousAsk!=0)break;
+		}		
 		for(int i=0;i<totalDurationSeconds;++i){
 			if(prices[i]==0) prices[i]=previousPrice;
 			else previousPrice = prices[i];
