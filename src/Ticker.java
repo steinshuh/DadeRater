@@ -93,6 +93,7 @@ public class Ticker {
 		try {
 			FileWriter fw = new FileWriter(filename);
 			fw.write(symbol+"\n");
+			Main.writeMarketHours(fw);
 			fw.write(""+moments.size()+"\n");
 			for(Entry<Long, Moment> entry : moments.entrySet()) {
 				fw.write(""+entry.getKey()+"\n");
@@ -134,6 +135,7 @@ public class Ticker {
 		}
 		int i=0;
 		try {
+			Main.loadMarketHours(breader, filename);
 			String s = breader.readLine();
 			if(s==null) {
 				breader.close();
@@ -223,8 +225,8 @@ public class Ticker {
 				System.err.println("Ticker.loadMoments "+filename+" read length is not the same as read value count: " 
 						+ moments.size() + ":" + i);
 			}
-			trimMoments();
-			updateMarketHours();
+			//trimMoments();
+			//updateMarketHours();
 		} catch (Exception e) {
 			Main.die("Ticker.loadMoments " + filename + " failed at moment "+i+".", e);
 		}

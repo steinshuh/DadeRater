@@ -28,7 +28,6 @@ import org.jfree.data.time.Second;
 import org.jfree.data.time.TimeSeries;
 import org.jfree.data.time.TimeSeriesCollection;
 
-
 public class Main {
 	//see how predictable the day is to itself
 	//sliding window
@@ -50,6 +49,36 @@ public class Main {
 	public static TreeMap<String, String> saves = new TreeMap<>();
 	public static TreeSet<String> filesToLoad = new TreeSet<>();
 
+	public static void writeMarketHours(FileWriter fw) throws IOException{
+		fw.write(""+marketHours.size()+"\n");
+		for(Entry<Long,Long> entry : marketHours.entrySet()){
+			fw.write(""+entry.getKey()+", "+entry.getValue()+"\n");
+		}
+	}
+	
+	public static void loadMarketHours(BufferedReader breader, String filename) throws IOException {
+		String s = breader.readLine();
+		if(s==null) {
+			breader.close();
+			Main.die("Main.loadMarketHours " + filename + " cut off before count", new Exception());
+		}
+		int count = Integer.parseInt(s);
+		int i=0;
+		for(s=breader.readLine();s!=null && i<count;) {
+			String[] hours = s.split(",");
+			if(hours.length!=2){
+				breader.close();
+				Main.die("Main.loadMarketHours " + filename + " badly formatted hours (not two entries): "+s, new Exception());
+			}
+			Long startHours = Long.parseLong(hours[0].trim());
+			Long endHours = Long.parseLong(hours[1].trim());
+			if(!marketHours.containsKey(startHours)){
+				marketHours.put(startHours, endHours);
+			}
+			++i;
+		}
+	}
+	
 	public static Ticker getTicker(String symbol) {
 		if(tickers.containsKey(symbol)) {
 			return tickers.get(symbol);
