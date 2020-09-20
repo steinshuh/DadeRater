@@ -3,7 +3,6 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Date;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.SortedMap;
@@ -59,16 +58,24 @@ public class Ticker {
 		int predictOffset=60;
 		System.out.println("Ticker.main");
 		System.out.println("\treading files");
-		PriceVector msftPv = readPriceVector("external/testdata/msftvs.csv");
-		PriceVector aaplPv = readPriceVector("external/testdata/aaplvs.csv");
-		PriceVector googlPv = readPriceVector("external/testdata/googlvs.csv");
-		System.out.println("\tq");
-		for(int dt = 1;dt <= distanceThreshold;++dt){
-			System.out.println("distance threshold (closest n):"+dt);
-			q(queryLength,stepSize,dt,predictOffset,msftPv);
-			q(queryLength,stepSize,dt,predictOffset,aaplPv);
-			q(queryLength,stepSize,dt,predictOffset,googlPv);
-		}
+			Ticker msftTicker=null;
+			Ticker aaplTicker=null;
+			Ticker googlTicker=null;
+			try {
+				msftTicker = Main.initializeTickerFromMoments("data/moms/msft.mom");
+				aaplTicker = Main.initializeTickerFromMoments("data/moms/aapl.mom");
+				googlTicker = Main.initializeTickerFromMoments("data/moms/googl.mom");
+			} catch (IOException e) {
+				Main.die("Ticker.main failed", e);
+			}
+
+			System.out.println("\tq");
+			for(int dt = 1;dt <= distanceThreshold;++dt){
+				System.out.println("distance threshold (closest n):"+dt);
+				q(queryLength,stepSize,dt,predictOffset,msftTicker.computePriceVector());
+				q(queryLength,stepSize,dt,predictOffset,aaplTicker.computePriceVector());
+				q(queryLength,stepSize,dt,predictOffset,googlTicker.computePriceVector());
+			}
 		System.out.println("\tdone");
 
 	}
@@ -231,50 +238,6 @@ public class Ticker {
 			Main.die("Ticker.loadMoments " + filename + " failed at moment "+i+".", e);
 		}
 	}
-
-	/**
-	 * Remove leading and trailing empty moments
-	 */
-	void trimMoments() {
-		if(moments==null)return;
-		while(!moments.isEmpty() && moments.firstEntry().getValue().isEmpty()) {
-			moments.remove(moments.firstKey());
-		}
-		while(!moments.isEmpty() && moments.lastEntry().getValue().isEmpty()) {
-			moments.remove(moments.lastKey());
-		}
-	}
-
-	public void updateMarketHours() {
-		if(moments==null)return;
-		if(moments.isEmpty())return;
-		long start = moments.firstKey();
-		long end = moments.lastKey();
-		Entry<Long,Long> entry = Main.marketHours.floorEntry(start);
-		if(entry==null || entry.getValue()<start) {
-			//nothing or it comes before, so check trailing
-			entry = Main.marketHours.higherEntry(start);
-			if(entry==null || entry.getKey()>end) {
-				//nothing after, so add
-				Main.marketHours.put(start, end);
-			} else if(entry.getKey()>end){
-				//after is completely after, so add
-				Main.marketHours.put(start, end);				
-			} else {
-				//overlaps with after
-				long tToDelete = entry.getKey();
-				end = Math.max(end, entry.getValue());
-				Main.marketHours.remove(tToDelete);
-				Main.marketHours.put(start, end);
-			}
-		} else {
-			//overlaps
-			end = Math.max(end, entry.getValue());
-			start = entry.getKey();
-			Main.marketHours.replace(start, end);
-		}
-	}
-
 
 	public Moment getMoment(long time) {
 		if(moments.containsKey(time)) {
@@ -543,54 +506,6 @@ public class Ticker {
 	}
 
 
-	public static PriceVector readPriceVector(String filename)
-	{
-		if(filename==null)Main.die("Ticker.readPriceVector null filename", new Exception());
-		try {
-			FileReader reader = new FileReader(filename);
-			BufferedReader breader = new BufferedReader(reader);
-			String symbol = breader.readLine();
-			if(symbol==null) {
-				breader.close();
-				Main.die("Ticker.readPriceVector " + filename + " empty file", new Exception());
-			}
-			String s = breader.readLine();
-			if(s==null) {
-				breader.close();
-				Main.die("Ticker.readPriceVector " + filename + " no entries past symbol", new Exception());
-			}
-			long t = Long.parseLong(s);
-			s = breader.readLine();
-			if(s==null) {
-				breader.close();
-				Main.die("Ticker.readPriceVector " + filename + " no entries past t", new Exception());
-			}
-			long[] prices= new long[Integer.parseInt(s)];
-			long[] bids= new long[Integer.parseInt(s)];
-			long[] asks= new long[Integer.parseInt(s)];
-			int i=0;
-			for(s=breader.readLine();s!=null && i<prices.length;s=breader.readLine()) {
-				String[] vs = s.split(",");
-				if(vs.length!=3){
-					Main.die("Ticker("+symbol+").readPriceVector failed split at line "+(i+3), new Exception());
-				}
-				prices[i]=Long.parseLong(vs[0]);
-				bids[i]=Long.parseLong(vs[0]);
-				asks[i]=Long.parseLong(vs[0]);
-				++i;
-			}
-			if(i!=prices.length) {
-				System.err.println("Ticker.readPriceVector "+filename+" read length is not the same as read value count: " 
-						+ prices.length + ":" + i);
-			}
-			breader.close();
-			return new PriceVector(symbol,t,prices,bids,asks);
-		} catch (Exception e) {
-			Main.die("Ticker.readPriceVector " + filename + " failed.", e);
-			return null;
-		}
-
-	}
 
 
 	public static double computeCorrelation(

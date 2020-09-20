@@ -325,12 +325,10 @@ public class Main {
 		if(needToLoadFiles) {
 			for(String f : filesToLoad) {
 				try {
-					FileReader reader = new FileReader(f);
-					BufferedReader breader = new BufferedReader(reader);
-					String symbol = breader.readLine();
-					Ticker ticker = getTicker(symbol);
-					ticker.loadMoments(breader, f);
-					breader.close();
+					Ticker ticker = initializeTickerFromMoments(f);
+					if(ticker==null){
+						die("Main -load "+f+" didn't create ticker", new Exception());
+					}
 				} catch (Exception e) {
 					die("Main -load " + f + " failed.", e);
 				}
@@ -492,6 +490,16 @@ public class Main {
 			printUsage(args);
 		}
 		System.out.println("ok");
+	}
+	
+	public static Ticker initializeTickerFromMoments(String f) throws IOException {
+		FileReader reader = new FileReader(f);
+		BufferedReader breader = new BufferedReader(reader);
+		String symbol = breader.readLine();
+		Ticker ticker = getTicker(symbol);
+		ticker.loadMoments(breader, f);
+		breader.close();
+		return ticker;
 	}
 
 	public static void testGui(){
