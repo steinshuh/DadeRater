@@ -1,5 +1,4 @@
 import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Date;
@@ -72,9 +71,9 @@ public class Ticker {
 			System.out.println("\tq");
 			for(int dt = 1;dt <= distanceThreshold;++dt){
 				System.out.println("distance threshold (closest n):"+dt);
-				q(queryLength,stepSize,dt,predictOffset,msftTicker.computePriceVector());
-				q(queryLength,stepSize,dt,predictOffset,aaplTicker.computePriceVector());
-				q(queryLength,stepSize,dt,predictOffset,googlTicker.computePriceVector());
+				msftTicker.q(queryLength,stepSize,dt,predictOffset);
+				aaplTicker.q(queryLength,stepSize,dt,predictOffset);
+				googlTicker.q(queryLength,stepSize,dt,predictOffset);
 			}
 		System.out.println("\tdone");
 
@@ -750,8 +749,51 @@ public class Ticker {
 			catch (IOException e) {die("dumpMoments: failed to write a newline "+filename,e);}
 		}		
 	}
+	
+	public Moment getClosestMoment(long t) {
+		if(moments==null) return null;
+		Entry<Long,Moment> floor = moments.floorEntry(t);
+		Entry<Long,Moment> higher;
+		if(floor==null) {
+			higher = moments.higherEntry(t);
+			if(higher==null) return null;
+			return higher.getValue();
+		} 
+		if(!floor.getKey().equals(t)) {
+			return floor.getValue();
+		}
+		higher=moments.higherEntry(t);
+		if(higher==null || ((t-floor.getKey().longValue()) < (higher.getKey().longValue()-t))) 
+			return floor.getValue();
+		return higher.getValue();
+	}
+	
+	public Long getClosestLaterPrice(long t, long maximumLag) {
+		if(moments==null)return null;
+		long maximumT = t+maximumLag;
+		for(Entry<Long, Moment> tail : moments.tailMap(t).entrySet()) {
+			if(maximumT < tail.getKey().longValue())return null;
+			if(tail.getValue().price>0L) return tail.getValue().price;
+		}
+		return null;
+	}
 
-	public void q(int queryLength, int stepSize, double distanceThreshold, int predictOffset){
+	public Long getClosestEarlierPrice(long t, long maximumLag) {
+		if(moments==null)return null;
+		long minimumT = t-maximumLag;
+		for(Entry<Long, Moment> head : moments.headMap(t, true).descendingMap().entrySet()) {
+			if(head.getKey().longValue() < minimumT)return null;
+			if(head.getValue().price>0L) return head.getValue().price;
+		}
+		return null;
+	}
+	
+	public void q(
+			int queryLength, //length of the sequence to match 
+			int stepSize, //steps in seconds for the simulation
+			double distanceThreshold, 
+			int predictOffset) //seconds into the future to predict
+	{
 		//see how predictable the day is to itself
 		//sliding window
 		//every n seconds (10, for now)
@@ -764,10 +806,9 @@ public class Ticker {
 		if(moments.isEmpty())return;
 		System.out.println("q for "+symbol);
 		PriceVector priceVector = computePriceVector();
-		q(queryLength,stepSize,distanceThreshold,predictOffset,priceVector);
-	}
-	static public void q(int queryLength, int stepSize, double distanceThreshold, int predictOffset, PriceVector priceVector){
-
+		TreeMap<Long,Long> predictedPriceChange = new TreeMap<>();
+		TreeMap<Long,Long> actualPriceChange = new TreeMap<>();
+ 
 		double[] prices = new double[priceVector.prices.length];
 		for(int i=0;i<priceVector.prices.length;++i){
 			prices[i]=(double)priceVector.prices[i];
