@@ -823,10 +823,10 @@ public class Ticker {
 		return rv;//top price matches
 	}
 	
-	public long[] makePredictVector(int queryLength, int stepSize, int minSampleCount, int secondsIntoTheFuture, PriceVector priceVector){
+	public long[][] makePredictVector(int queryLength, int stepSize, int minSampleCount, int secondsIntoTheFuture, PriceVector priceVector){
 		if(priceVector==null) return null;
 		if(stepSize<1)stepSize=1;
-		long[] rv = new long[priceVector.prices.length];
+		long[][] rv = new long[priceVector.prices.length][minSampleCount];
 		int i=0;
 		
 		//initialize the prediction vector to -1 to indicate "no prediction"
