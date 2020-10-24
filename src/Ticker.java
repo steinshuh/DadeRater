@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 import javax.swing.BoxLayout;
 import javax.swing.JFrame;
@@ -751,22 +752,119 @@ public class Ticker {
 		}		
 	}
 
-	public void q(int queryLength, int stepSize, double distanceThreshold, int predictOffset){
+	public void q(int queryLength, int stepSize, int numberOfSamplesToUse, int predictOffset){
 		//see how predictable the day is to itself
-		//sliding window
-		//every n seconds (10, for now)
+		//sliding window (queryLength)
+		//every n seconds (stepSize)
 		//define Q
 		//compute dist
-		//check for dist < threshold (3, for now)
-		//determine the mean & sd at some future time t (60 seconds, for now)
+		//gaher the closest samples (numberOfSamplesToUse)
+		//determine the min, max, mean, and sd of a future actual predict 
 		//also try nearest neighbor
 		//compute profit?
 		if(moments.isEmpty())return;
 		System.out.println("q for "+symbol);
 		PriceVector priceVector = computePriceVector();
-		q(queryLength,stepSize,distanceThreshold,predictOffset,priceVector);
+		q(queryLength,stepSize,numberOfSamplesToUse,predictOffset,priceVector);
 	}
-	static public void q(int queryLength, int stepSize, double distanceThreshold, int predictOffset, PriceVector priceVector){
+	
+	/*
+	 * t is the time to make the prediction from, so the start of the query is t-queryLength and the time of the prediction is t+secondsIntoTheFuture
+	 */
+	public long[] makePredict(int queryLength, int t, int minSampleCount, int secondsIntoTheFuture, PriceVector priceVector){
+		if(priceVector==null)return null;
+		if(minSampleCount<1)return null;
+		long rv[] = new long[minSampleCount];
+		
+		//------------
+		double[] T = new double[priceVector.prices.length];
+		for(int i=0;i<priceVector.prices.length;++i){
+			T[i]=(double)priceVector.prices[i];
+		}
+		double[] Q = new double[queryLength];
+		for(int i=t-queryLength;i<t;++i) Q[i]=T[i];
+		double[] D = MASS.mass(Q, T);
+		//remove results around t
+		for(int i=t-queryLength;i<t+queryLength;++i)D[i]=1000.0;//incredibly far away
+		//order the results
+		TreeMap<Double, TreeSet<Integer>> bestMatches = new TreeMap<>();
+		
+		//sort the matches
+		for(int i=0;i<D.length-queryLength-secondsIntoTheFuture;++i){
+			TreeSet<Integer> indices = bestMatches.get(D[i]);
+			if(indices==null){
+				indices=new TreeSet<Integer>();
+				bestMatches.put(D[i], indices);
+			}
+			indices.add(i);
+		}
+		
+		//find the top unique matches
+		for(int i=0;i<rv.length;++i){
+			if(bestMatches.isEmpty()){
+				rv[i]=-1;
+			} else {
+				TreeSet<Integer> indices = bestMatches.firstEntry().getValue();
+				int chosenIndex = indices.first()+queryLength;
+				rv[i]=priceVector.prices[chosenIndex+queryLength+secondsIntoTheFuture];
+				//remove local "close" matches
+				for(int indexToRemove = chosenIndex - queryLength; indexToRemove < rv[i] + queryLength;++indexToRemove){
+					if(indexToRemove > 0 && indexToRemove < D.length){
+						indices = bestMatches.get(D[indexToRemove]);
+						indices.remove(indexToRemove);
+						if(indices.isEmpty()){
+							bestMatches.remove(D[indexToRemove]);
+						}
+					}
+				}
+			}
+		}
+
+		return rv;//top price matches
+	}
+	
+	public long[] makePredictVector(int queryLength, int stepSize, int minSampleCount, int secondsIntoTheFuture, PriceVector priceVector){
+		if(priceVector==null) return null;
+		if(stepSize<1)stepSize=1;
+		long[] rv = new long[priceVector.prices.length];
+		int i=0;
+		
+		//initialize the prediction vector to -1 to indicate "no prediction"
+		for(;i<rv.length;++i){
+			rv[i]=-1L;
+		}
+		
+
+		
+		//extend first predict value backward in time
+		long previousPredict = -1L;
+		for(i=0;i<rv.length;++i){
+			if(rv[i]>-1){
+				int j=i+1;
+				previousPredict=rv[i];
+				for(--i;i>=0;--i){
+					rv[i]=previousPredict;
+				}
+				i=j;
+				break;
+			}
+		}
+		
+		//extend all predicts forward in time
+		if(previousPredict>-1){
+			//i is initialized on the previous step
+			for(;i<rv.length;++i){
+				if(rv[i]==-1){
+					rv[i]=previousPredict;
+				} else {
+					previousPredict=rv[i];
+				}
+			}
+		}
+		return rv;
+	}
+	
+	static public void q(int queryLength, int stepSize, int numberOfSamplesToUse, int predictOffset, PriceVector priceVector){
 
 		double[] prices = new double[priceVector.prices.length];
 		for(int i=0;i<priceVector.prices.length;++i){
