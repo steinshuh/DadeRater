@@ -814,7 +814,7 @@ public class Ticker {
 	/*
 	 * t is the time to make the prediction from, so the start of the query is t-queryLength and the time of the prediction is t+secondsIntoTheFuture
 	 */
-	public long[] makePredict(int queryLength, int t, int minSampleCount, int secondsIntoTheFuture, PriceVector priceVector){
+	public static long[] makePredict(int queryLength, int t, int minSampleCount, int secondsIntoTheFuture, PriceVector priceVector){
 		if(priceVector==null)return null;
 		if(minSampleCount<1)return null;
 		long rv[] = new long[minSampleCount];
@@ -866,151 +866,72 @@ public class Ticker {
 		return rv;//top price matches
 	}
 	
-	public long[][] makePredictVector(int queryLength, int stepSize, int minSampleCount, int secondsIntoTheFuture, PriceVector priceVector){
+	//returns predictions for a moment in the future
+	public static long[][] makePredictVector(int queryLength, int stepSize, int minSampleCount, int secondsIntoTheFuture, PriceVector priceVector, boolean fillGaps){
 		if(priceVector==null) return null;
 		if(stepSize<1)stepSize=1;
 		long[][] rv = new long[priceVector.prices.length][minSampleCount];
 		int i=0;
 		
-		//initialize the prediction vector to -1 to indicate "no prediction"
-		for(;i<rv.length;++i){
-			rv[i]=-1L;
-		}
-		
-
-		
-		//extend first predict value backward in time
-		long previousPredict = -1L;
-		for(i=0;i<rv.length;++i){
-			if(rv[i]>-1){
-				int j=i+1;
-				previousPredict=rv[i];
-				for(--i;i>=0;--i){
-					rv[i]=previousPredict;
-				}
-				i=j;
-				break;
-			}
-		}
-		
-		//extend all predicts forward in time
-		if(previousPredict>-1){
-			//i is initialized on the previous step
+		if(fillGaps) {
+			//initialize the prediction vector to -1 to indicate "no prediction"
 			for(;i<rv.length;++i){
-				if(rv[i]==-1){
-					rv[i]=previousPredict;
-				} else {
-					previousPredict=rv[i];
+				for(int j=0;j<minSampleCount;++j) {
+					rv[i][j]=-1L;
 				}
 			}
 		}
-		return rv;
-	}
-	
-	static public void q(int queryLength, int stepSize, int numberOfSamplesToUse, int predictOffset, PriceVector priceVector){
 
-		TreeMap<Long,Long> predictedPriceChange = new TreeMap<>();
-		TreeMap<Long,Long> actualPriceChange = new TreeMap<>();
- 
-		double[] prices = new double[priceVector.prices.length];
-		for(int i=0;i<priceVector.prices.length;++i){
-			prices[i]=(double)priceVector.prices[i];
+		//fill the vector at specific points, for every stepSize steps
+		for(int t = queryLength;t<rv.length-secondsIntoTheFuture;t+=stepSize) {
+			rv[t+secondsIntoTheFuture] = makePredict(queryLength, t, minSampleCount, secondsIntoTheFuture, priceVector);
 		}
-		double[] T = normalize(prices);
-		double[] Q = new double[queryLength];
-		int firstT = 0;//need to scan for this
-		int successes = 0;
-		int failures = 0;
-		int unknown = 0;
-		double sumError = 0;
-		double totalCount = 0;
-		for(int t=firstT;t<T.length-Q.length-predictOffset;t+=stepSize){
-			for(int i=0;i<Q.length;++i) Q[i]=T[i];
-			double[] D = MASS.mass(Q, T);
-			double sum = 0;
-			double sum2 = 0;
-			double count = 0 ;
-			TreeMap<Double, Integer> bestMatches = new TreeMap<Double, Integer>();
-			TreeMap<Integer, Double> bestMatchCrossRef = new TreeMap<Integer, Double>();
-			//TODO need to suppress local similar matches
-			for(int dt = firstT; dt<T.length-Q.length-predictOffset; ++dt){
-				if((dt + queryLength < t || t + queryLength < dt)){
-					if(bestMatches.size()<distanceThreshold){
-						//this needs to make sure local things don't get selected
-						bestMatches.put(D[dt], dt);
-						bestMatchCrossRef.put(dt, D[dt]);
+		
+		if(fillGaps) {
+			//extend first predict value backward in time
+			long[] previousPredict = null;
+			for(i=0;i<rv.length;++i){
+				if(rv[i][0]>-1){
+					int j=i+1;
+					previousPredict=rv[i];
+					i=j;
+					break;
+				}
+			}
+			//extend all predicts forward in time
+			if(previousPredict!=null){
+				//i is initialized on the previous step
+				for(;i<rv.length;++i){
+					if(rv[i][0]==-1){
+						for(int j=0;j<minSampleCount;++j)
+							rv[i][j]=previousPredict[j];
 					} else {
-						if(D[dt] < bestMatches.lastKey()){
-							//get the entry less than or equal to (won't be equal to)
-							Entry<Integer, Double> entry = bestMatchCrossRef.floorEntry(dt);
-							int clobberT= -1;
-							if(entry != null){
-								//close enough to clobber
-								if(dt-entry.getKey()<queryLength){
-									if(D[dt] < entry.getValue()){
-										//clobber
-										clobberT=entry.getKey();
-									}
-								}
-							}
-							entry=bestMatchCrossRef.ceilingEntry(dt);
-							if(entry != null){
-								//close enough to clobber
-								if(entry.getKey()-dt<queryLength){
-									if(D[dt] < entry.getValue()){
-										if(clobberT == -1){
-											clobberT=entry.getKey();
-										}else{
-											if(D[clobberT] < entry.getValue()){
-												clobberT=entry.getKey();
-											}
-										}
-									}
-								}
-							}
-							if(clobberT>-1){
-								if(D[dt]<bestMatches.lastKey()){
-									if(bestMatches.size()==distanceThreshold){
-										bestMatchCrossRef.remove(bestMatches.lastEntry().getValue());
-										bestMatches.remove(bestMatches.lastKey());
-									}
-									bestMatches.put(D[dt], dt);
-									bestMatchCrossRef.put(dt, D[dt]);
-								}
-							} else {
-								bestMatches.remove(D[dt]);
-								bestMatchCrossRef.remove(clobberT);
-								bestMatches.put(D[dt], dt);
-								bestMatchCrossRef.put(dt, D[dt]);
-							}
-						}
+						previousPredict=rv[i];
 					}
 				}
 			}
-			for(Entry<Double, Integer> entry : bestMatches.entrySet()){
-				int dt = entry.getValue();
-				double predict = T[dt+queryLength+predictOffset];
-				sum += predict;
-				sum2 += predict*predict;
-				++count;
-			}
-			if(count > 0){//TODO make an argument
-				double actual = T[t+queryLength+predictOffset];
-				double mean = sum/count;
-				double error = Math.abs(actual-mean);
-				++totalCount;
-				sumError+=error;
-				double variance = sum2-((sum*sum)/count);
-				double standardDeviation = Math.sqrt(Math.abs(variance));
-				if((mean-standardDeviation) < actual && actual < (mean+standardDeviation)){
-					++successes;
-				} else {
-					++failures;
-				}
-			} else {
-				++unknown;
-			}
 		}
+		
+		return rv;
+	}
+	
+	static public void q(int queryLength, int stepSize, int minSampleCount, int secondsIntoTheFuture, PriceVector priceVector){
+		long[][] pv = makePredictVector( queryLength,  stepSize,  minSampleCount,  secondsIntoTheFuture,  priceVector, false);
+		TreeMap<Long,Long> predictedPriceChange = new TreeMap<>();
+		TreeMap<Long,Long> actualPriceChange = new TreeMap<>();
+ 
+		double sumWrongDirectionErrors = 0D;
+		double sumSqWrongDirectionErrors = 0D;
+		int wrongDirectionErrors = 0;
+		
+		double sumRightDirectionErrors = 0D;
+		double sumSqRightDirectionErrors = 0D;
+		int rightDirectionErrors = 0;
+		
+		for(long t = queryLength+minSampleCount; t<pv.length;t+=stepSize) {
+			
+		}
+		
 		double averageError = sumError/totalCount;
 		System.out.println("Q: "+priceVector.symbol+" success: "+successes+
 				"  failures: "+failures+"  unknown: "+unknown+
